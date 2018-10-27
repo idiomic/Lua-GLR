@@ -117,11 +117,22 @@ function Syntax:get(key)
 end
 
 function Syntax:set(key, value)
+	if type(value) == 'function' then
+		self:get(key).semanticAction = value
+		return
+	end
+
 	if key ~= key:upper() then
 		error('Attempt to define a terminal symbol', 2)
 	end
 
 	local nonterminal = self:get(key)
+
+	if type(value) == 'function' then
+		nonterminal.semanticAction = value
+		return
+	end
+
 	if value.class == 'Production' then
 		value = Assembly.new(value, value, Assembly.Or)
 	end

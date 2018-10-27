@@ -20,6 +20,7 @@ function Production.new(tokenType, token)
 		expansions = {};
 		follow = {};
 		references = {};
+		semanticAction = false;
 	}, Production)
 
 	if isTerminal then

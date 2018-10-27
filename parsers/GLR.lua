@@ -1,5 +1,8 @@
-local INIT_NODE = {
-	[{cur = 1}] = true;
+local INIT_NODES = {
+	[{
+		cur = 1;
+		semanticRecords = {};
+	}] = true;
 }
 
 local performAction
@@ -11,15 +14,19 @@ local DFA
 -- Set to 'function() end' to turn off debugging
 local print = print
 
-local function newNode(up, state)
+local function newNode(up, state, prev, production)
 	local new = visited[state]
 
 	if new then
 		new.up[up] = true
+		new.prev[prev] = true
 	else
 		new = {
 			cur = state;
 			up = {[up] = true};
+			prev = {[prev] = true};
+			production = production;
+			semanticRecords = production.semanticAction and {};
 		}
 		visited[state] = new
 	end
@@ -32,7 +39,7 @@ local s = '    '
 local function shift(node, action)
 	print(s:rep(l + 1) .. "Shift", node.cur, action)
 
-	newNodes[newNode(node, action)] = true
+	newNodes[newNode(node, action, node, terminal)] = true
 end
 
 local getAncesters
@@ -60,7 +67,7 @@ local function reduce(node, reduction)
 		if visited[gotoState] and visited[gotoState].up[upNode] then
 			print(s:rep(l) .. "Already Evaluated")
 		else
-			performAction(newNode(upNode, gotoState))
+			performAction(newNode(upNode, gotoState, node, reduction.production))
 		end
 	end
 	l = l - 1
@@ -82,7 +89,7 @@ function performAction(node)
 		if type(altAction) == 'number' then
 			shift(node, altAction)
 		else
-			reduce(node, altAction, action)
+			reduce(node, altAction)
 		end
 	end
 	print(s:rep(l) .. "End")
@@ -91,7 +98,10 @@ end
 return function(parseTable, terminals)
 	DFA = parseTable
 
-	local nodes = INIT_NODE
+	local nodes = INIT_NODES
+	local rootNodes
+
+	-- Parse tokens
 	for _, t in ipairs(terminals) do
 		newNodes = {}
 		visited = {}
@@ -116,12 +126,53 @@ return function(parseTable, terminals)
 		end
 
 		nodes = newNodes
+		if not rootNodes then
+			rootNodes = nodes
+		end
 	end
 
-	print("Finished with:")
-	for node in next, nodes do
-		print(node.cur)
+	local numSolutions = 0
+	for _ in next, nodes do
+		numSolutions = numSolutions + 1
 	end
 
-	return nodes
+	-- Reverse valid stacks, stepped between shifts
+	local allNodes = {} -- from top to bottom
+	local fringe
+	local newFringe = nodes
+	while next(newFringe) do
+		fringe = newFringe
+		newFringe = {}
+		local node = next(fringe)
+		repeat
+			allNodes[#allNodes + 1] = node
+
+			if node.prev then
+				for prevNode in next, node.prev do
+					local addTo = node.up[prevNode] and newFringe or fringe
+					addTo[prevNode] = true
+				end
+			end
+
+			fringe[node] = nil
+			node = next(fringe)
+		until not node
+	end
+
+	-- Call semantic actions
+	for i = #allNodes - 1, 1, -1 do
+		local node = allNodes[i]
+		if node.production.semanticAction then
+			local semanticRecord, key = node.production.semanticAction(node.semanticRecords)
+			print(node.cur, node.production, semanticRecord)
+			local records = node.up.semanticRecords
+			if records then
+				records[key or #records + 1] = semanticRecord
+			end
+		else
+			print(node.cur, node.production)
+		end
+	end
+
+	return numSolutions
 end
