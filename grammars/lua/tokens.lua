@@ -2,8 +2,7 @@ local delimiters = require 'grammars/lua/delimiters'
 local whitespace = require 'grammars/lua/whitespace'
 local keywords = require 'grammars/lua/reserved'
 
-local workingDirectory = '/home/tyler/src/LuaFida/'
-local input = io.open(workingDirectory .. 'input.lua', 'r')
+local input = io.open('input', 'r')
 io.input(input)
 local source = io.read '*all'
 io.close(input)

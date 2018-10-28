@@ -23,6 +23,17 @@ function Syntax.define()
 	return new
 end
 
+function Syntax:extend()
+	local env = getfenv(2)
+
+	envToSyntax[env] = self
+
+	env._SYNTAX = self
+	env._NUM_AUTOS = 0
+
+	setmetatable(env, Environment)
+end
+
 function Syntax:findFirst()
 	if self.isFirstDefined then
 		return
