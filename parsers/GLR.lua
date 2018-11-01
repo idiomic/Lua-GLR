@@ -1,25 +1,25 @@
 local performAction
-local visited
 local newNodes
 local terminal
 local DFA
 local token
+local cache
 
 local function shift(node, action)
-	if not visited[action] then
-		local new = {
-			cur = action;
-			prev = node;
-			token = token;
-			production = terminal;
-		}
-		visited[action] = new
-		newNodes[new] = true
-	end
+	local new = {
+		cur = action;
+		prev = node;
+		token = token;
+		production = terminal;
+	}
+	newNodes[new] = true
 end
 
-local function reduce(node, reduction)
-	local prev = node
+local function reduce(prev, reduction)
+	if #reduction == 0 and prev.production == reduction.production then
+		return
+	end
+
 	local popedNodes = {}
 	for i = 1, #reduction do
 		popedNodes[i] = prev
@@ -27,16 +27,38 @@ local function reduce(node, reduction)
 	end
 
 	local prod = reduction.production
-	local gotoState = DFA[prev.cur][prod]
-	performAction {
-		cur = gotoState;
+	return performAction {
+		cur = DFA[prev.cur][prod];
 		prev = prev;
 		production = prod;
 		popedNodes = popedNodes;
 	}
 end
 
+local function isCached(leafNode)
+	for otherNode in next, cache do
+		local node = leafNode
+		local isMatch = true
+		while isMatch and node and otherNode do
+			isMatch = node.cur == otherNode.cur
+				and node.production == node.production
+			node = node.prev
+			otherNode = otherNode.prev
+		end
+		if isMatch then
+			return true
+		end
+	end
+
+	cache[leafNode] = true
+	return false
+end
+
 function performAction(node)
+	if isCached(node) then
+		return
+	end
+
 	local action = DFA[node.cur][terminal]
 	if not action then
 		return
@@ -77,23 +99,19 @@ return function(parseTable, syntax, tokens)
 	DFA = parseTable
 
 	local nodes = {[{cur = 1}] = true}
-	local rootNodes
 
 	-- Parse tokens
-	for i, t in ipairs(syntax:getTerminals(tokens)) do
-		newNodes = {}
-		visited = {}
-		terminal = t
+	local terminals = syntax:getTerminals(tokens)
+	for i = 1, #terminals do
+		terminal = terminals[i]
 		token = tokens.literals[i]
 
+		cache = {}
+		newNodes = {}
 		for node in next, nodes do
 			performAction(node)
 		end
-
 		nodes = newNodes
-		if not rootNodes then
-			rootNodes = nodes
-		end
 	end
 
 	local results = {}

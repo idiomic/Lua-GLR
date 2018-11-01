@@ -1,1 +1,5 @@
-select 1 thru 5 and 15 at 100
+local function foo(a, b, c)
+	print(a + b + c)
+end
+
+foo(1, 2, 4)
