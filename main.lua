@@ -1,4 +1,4 @@
-local syntax = require 'grammars/lua/semantics'
+local syntax = require 'grammars/luafide/semantics'
 local tokens = require 'grammars/lua/tokens'
 local SLR = require 'generators/SLR(1)'
 local parse = require 'parsers/GLR'
