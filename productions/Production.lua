@@ -163,10 +163,11 @@ function Production:__add(other)
 end
 function Production:__call(op)
 	if op == '?' then
-		self.isOptional = true
+		return Assembly.new(self)
 	elseif op == '*' then
 		self.isOptional = true
 		self.isRepeated = true
+		return self
 	else
 		error 'Attempt to call an assembly of productions'
 	end

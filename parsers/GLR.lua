@@ -6,7 +6,6 @@ local token
 local cache
 
 local function shift(node, action)
-	print('shift', terminal)
 	local new = {
 		cur = action;
 		prev = node;
@@ -28,7 +27,6 @@ local function reduce(prev, reduction)
 	end
 
 	local prod = reduction.production
-	print('reduce', prod)
 	return performAction {
 		cur = DFA[prev.cur][prod];
 		prev = prev;
@@ -58,13 +56,11 @@ end
 
 function performAction(node)
 	if isCached(node) then
-		print('Cached')
 		return
 	end
 
 	local action = DFA[node.cur][terminal]
 	if not action then
-		print('No Action', node.production, terminal)
 		return
 	end
 
@@ -73,13 +69,11 @@ function performAction(node)
 	end
 
 	for altAction in next, action do
-		print('Begin')
 		if type(altAction) == 'number' then
 			shift(node, altAction)
 		else
 			reduce(node, altAction)
 		end
-		print('End')
 	end
 end
 

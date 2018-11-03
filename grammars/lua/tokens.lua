@@ -29,8 +29,26 @@ function states.lineComment()
 end
 
 function states.multilineComment()
-	if byte == 42 and nextByte == 47 then
+	if byte == 93 and nextByte == 93 then
 		state = 'ignore'
+	end
+	return false
+end
+
+function states.comment2()
+	if byte == 91 and nextByte == 91 then
+		state = 'multilineComment'
+	else
+		state = 'lineComment'
+	end
+	return false
+end
+
+function states.comment()
+	if nextByte == 91 then
+		state = 'comment2'
+	else
+		state = 'lineComment'
 	end
 	return false
 end
@@ -124,10 +142,9 @@ function states.binary()
 end
 
 function states.delimiter()
-	if byte == 47 and nextByte == 42 then
-		state = 'multilineComment'
-	elseif byte == 47 and nextByte == 47 then
-		state = 'lineComment'
+	if byte == 45 and nextByte == 45 then
+		state = 'comment'
+		return false
 	elseif byte == 91 and (nextByte == 91 or nextByte == 61) then
 		bracketLevel = 0
 		state = 'bracketStart'
@@ -254,10 +271,11 @@ else
 	add 'eof'
 end
 
-
+--[[
 for i, token in ipairs(literals) do
 	print(i, token, types[i], lines[i], ranges[i][1], ranges[i][2])
 end
+]]
 
 return {
 	literals = literals,

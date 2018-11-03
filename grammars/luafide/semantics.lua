@@ -167,7 +167,9 @@ function LOCAL_DEF(f, o)
 end 
 
 function DEF(f, o)
-	o[#o + 1] = f{}
+	o[#o + 1] = f{
+		statement = 'DEF'
+	}
 end
 
 function BRACKET_EXP(f, o)
@@ -180,10 +182,14 @@ function VAR(f, o)
 	f(o)
 end
 
-function CALL(f, o)
+function CALL_STATEMENT(f, o)
 	o[#o + 1] = f{
 		statement = 'CALL';
 	}
+end
+
+function CALL_EXP(f, o)
+	o[#o + 1] = f{}
 end
 
 function PREFIX(f, o)

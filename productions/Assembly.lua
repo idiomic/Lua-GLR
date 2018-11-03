@@ -1,11 +1,12 @@
 local Assembly = {
 	Or = require 'productions/Or';
 	And = require 'productions/And';
+	Opt = require 'productions/Opt';
 }
 
 function Assembly.new(arg1, arg2, op)
 	local value = setmetatable({
-		op = op;
+		op = arg2 and op or Assembly.Opt;
 		isOptional = false;
 		isFirstFound = false;
 		first = {};
@@ -146,7 +147,9 @@ function Assembly:compileFollow()
 	self.follow = follow
 
 	self.left:compileFollow()
-	self.right:compileFollow()
+	if self.right then
+		self.right:compileFollow()
+	end
 end
 
 function Assembly:expand(expansions)
@@ -168,7 +171,7 @@ end
 
 function Assembly:__call(op)
 	if op == '?' then
-		self.isOptional = true
+		return Assembly.new(self)
 	elseif op == '*' then
 		-- We should be throwing an error here telling the user that this
 		-- operation can only be performed on a nonterminal, but since
@@ -185,8 +188,8 @@ function Assembly:__call(op)
 		auto = '_AUTO_' .. auto
 		env[auto] = self
 		env[auto] = autoSemanticAction
-		self.rep = env[auto]
-		return self.rep '*'
+		self.rep = env[auto] '*'
+		return self.rep
 	else
 		error 'Attempt to call an assembly of productions'
 	end
