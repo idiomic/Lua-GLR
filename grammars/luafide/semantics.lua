@@ -167,7 +167,7 @@ function LOCAL_DEF(f, o)
 end 
 
 function DEF(f, o)
-	o[#o + 1] = f(o)
+	o[#o + 1] = f{}
 end
 
 function BRACKET_EXP(f, o)

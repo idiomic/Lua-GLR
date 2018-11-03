@@ -176,13 +176,17 @@ function Assembly:__call(op)
 		-- this functionallity has been hacked in. Once a syntax for syntax
 		-- definition has been created along with a transpiler to Lua, this
 		-- ugly hack will become obsolete.
+		if self.rep then
+			return self.rep
+		end
 		local env = getfenv(2)
 		local auto = env._NUM_AUTOS + 1
 		env._NUM_AUTOS = auto
 		auto = '_AUTO_' .. auto
 		env[auto] = self
 		env[auto] = autoSemanticAction
-		return env[auto] '*'
+		self.rep = env[auto]
+		return self.rep '*'
 	else
 		error 'Attempt to call an assembly of productions'
 	end

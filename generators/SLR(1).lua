@@ -8,6 +8,10 @@ return function (syntax)
 
 	syntax:findFollow()
 
+	for key, value in next, syntax.productions.CHUNK.follow do
+		print(key, value)
+	end
+
 	local DFA, reductionToStates = Collection(syntax, start)
 
 --[[ DEBUG START

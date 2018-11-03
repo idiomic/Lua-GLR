@@ -1,12 +1,14 @@
 local syntax = require('Syntax').define()
 
-local function list(production)
-	return production * (delimiter[','] * production) '*'
+local function list(production, sep)
+	return production * ((sep or delimiter[',']) * production) '*'
 end
 
 local function parens(production)
 	return delimiter['('] * production * delimiter[')']
 end
+
+local E = e '?'
 
 START = CHUNK * eof
 
@@ -21,9 +23,7 @@ local STATEMENT = DO
 	+ DEF
 	+ CALL
 
-local E = e '?'
-
-CHUNK = (STATEMENT * (delimiter[';'] + E)) '*'
+CHUNK = list(STATEMENT, delimiter[';']) '*'
 		* (LAST_STATEMENT * (delimiter[';'] + E) + E)
 
 EXP_LIST = list(EXP)
@@ -89,9 +89,9 @@ ARGS = parens(OPT_EXP_LIST) + TABLE + String
 
 local FIELD_SEP = delimiter[','] + delimiter[';']
 
-local FIELD_LIST = FIELD * (FIELD_SEP * FIELD) '*' + E
+local FIELD_LIST = list(FIELD, FIELD_SEP) * (FIELD_SEP + E)
 
-TABLE = delimiter['{'] * FIELD_LIST * (FIELD_SEP + E) * delimiter['}']
+TABLE = delimiter['{'] * (FIELD_LIST + E) * delimiter['}']
 
 FIELD = BRACKET_EXP * delimiter['='] * EXP
 	+ variable * delimiter['='] * EXP

@@ -254,11 +254,10 @@ else
 	add 'eof'
 end
 
---[[
+
 for i, token in ipairs(literals) do
 	print(i, token, types[i], lines[i], ranges[i][1], ranges[i][2])
 end
-]]
 
 return {
 	literals = literals,

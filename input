@@ -1,1 +1,3 @@
-local syntax = foo()
+if true then
+return
+end
