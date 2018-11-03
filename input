@@ -1,5 +1,1 @@
-local function foo(a, b, c)
-	print(a + b + c)
-end
-
-foo(1, 2, 4)
+local syntax = foo()

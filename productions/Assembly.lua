@@ -162,6 +162,10 @@ end
 function Assembly:__mul(other) return self:new(other, Assembly.And) end
 function Assembly:__add(other) return self:new(other, Assembly.Or) end
 
+local function autoSemanticAction(f, o)
+	return f(o)
+end
+
 function Assembly:__call(op)
 	if op == '?' then
 		self.isOptional = true
@@ -172,13 +176,12 @@ function Assembly:__call(op)
 		-- this functionallity has been hacked in. Once a syntax for syntax
 		-- definition has been created along with a transpiler to Lua, this
 		-- ugly hack will become obsolete.
-		self.isOptional = true
-		self.isRepeated = true
 		local env = getfenv(2)
 		local auto = env._NUM_AUTOS + 1
 		env._NUM_AUTOS = auto
 		auto = '_AUTO_' .. auto
 		env[auto] = self
+		env[auto] = autoSemanticAction
 		return env[auto] '*'
 	else
 		error 'Attempt to call an assembly of productions'
