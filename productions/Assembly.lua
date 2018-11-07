@@ -1,8 +1,4 @@
-local Assembly = {
-	Or = require 'productions/Or';
-	And = require 'productions/And';
-	Opt = require 'productions/Opt';
-}
+local Assembly = {}
 
 function Assembly.new(arg1, arg2, op)
 	local value = setmetatable({
@@ -206,4 +202,9 @@ end
 Assembly.class = 'Assembly'
 Assembly.__index = Assembly
 
-return Assembly
+return function(settings)
+	Assembly.Or = settings.require 'productions/Or'
+	Assembly.And = settings.require 'productions/And'
+	Assembly.Opt = settings.require 'productions/Opt'
+	return Assembly
+end

@@ -1,4 +1,4 @@
-return {
+return function() return {
 	['and'] = true;
 	['break'] = true;
 	['do'] = true;
@@ -20,4 +20,4 @@ return {
 	['true'] = true;
 	['until'] = true;
 	['while'] = true;
-}
+} end

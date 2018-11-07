@@ -14,4 +14,6 @@ function Expansion:__tostring()
 	return ('%s{%s}'):format(tostring(self.production), table.concat(tokenStrings, ' '))
 end
 
-return Expansion
+return function()
+	return Expansion
+end

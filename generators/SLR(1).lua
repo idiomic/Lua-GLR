@@ -1,6 +1,6 @@
-local Collection = require 'collections/LR(0)'
+local Collection
 
-return function (syntax)
+local function generate(syntax)
 	local start = syntax.productions.START
 	if not start then
 		error('The given syntax must be augmented with nonterminal START', 2)
@@ -31,4 +31,9 @@ return function (syntax)
 	end
 
 	return DFA
+end
+
+return function(settings)
+	Collection = settings.require 'collections/LR(0)'
+	return generate
 end

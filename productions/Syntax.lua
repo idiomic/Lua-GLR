@@ -1,5 +1,4 @@
-local Assembly = require 'productions/Assembly'
-local Production = require 'productions/Production'
+local Assembly, Production
 
 local Syntax = {}
 local Environment = {}
@@ -165,4 +164,8 @@ function Environment:__newindex(key, value)
 	envToSyntax[self]:set(key, value)
 end
 
-return Syntax
+return function(settings)
+	Assembly = settings.require 'productions/Assembly'
+	Production = settings.require 'productions/Production'
+	return Syntax
+end

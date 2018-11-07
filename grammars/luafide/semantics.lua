@@ -1,4 +1,6 @@
-local syntax = require 'grammars/lua/syntax'
+return function(settings)
+
+local syntax = settings.require 'grammars/lua/syntax'
 syntax:extend()
 
 local function rename(rep, src)
@@ -218,3 +220,4 @@ function FIELD(f, o)
 end
 
 return syntax
+end

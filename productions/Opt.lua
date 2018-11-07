@@ -1,24 +1,24 @@
-local Or = {name = '(%s or %s)'}
+local Opt = {name = '%s?'}
 
 local function setOptional(self)
 	self.isOptional = true
 end
 
-function Or:extendFirst(index)
+function Opt:extendFirst(index)
 	self:grabFirst(index)
 	setOptional(self)
 	return true
 end
 
-function Or:aggregateFirst(visited, count)
+function Opt:aggregateFirst(visited, count)
 	setOptional(self)
 end
 
-function Or:addFollow()
+function Opt:addFollow()
 	self.left:addFollow(self.follow)
 end
 
-function Or:expand(expansions)
+function Opt:expand(expansions)
 	local leftExpansions = self.left:expand(expansions)
 
 	for key, value in next, expansions do
@@ -28,4 +28,6 @@ function Or:expand(expansions)
 	return leftExpansions
 end
 
-return Or
+return function()
+	return Opt
+end

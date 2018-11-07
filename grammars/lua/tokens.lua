@@ -1,18 +1,7 @@
-local delimiters = require 'grammars/lua/delimiters'
-local whitespace = require 'grammars/lua/whitespace'
-local keywords = require 'grammars/lua/reserved'
-
-local input = io.open('input', 'r')
-io.input(input)
-local source = io.read '*all'
-io.close(input)
-local sourceBytes = {source:byte(1, source:len())}
-
+local delimiters, whitespace, keywords
+local source, sourceBytes
 local states = {}
-local state = 'start'
-local byte = sourceBytes[1]
-local nextByte = sourceBytes[2]
-local add
+local state, byte, nextByte, add
 
 function states.ignore()
 	state = 'start'
@@ -215,71 +204,80 @@ function states.start()
 	end
 end
 
-local literals = {}
-local types = {}
-local lines = {}
-local ranges = {}
-local curLine = 1
-local tokenStart = 1
-local tokenEnd = 1
-local sourceLen = #sourceBytes
+local function tokenize()
+	state = 'start'
+	byte = sourceBytes[1]
+	nextByte = sourceBytes[2]
 
-function add(tokenType)
-	if tokenType == 'String' then
-		tokenStart = tokenStart + 1
-	end
-	local token = source:sub(tokenStart, tokenEnd)
-	if tokenType == 'append' then
-		local n = #literals
-		literals[n] = literals[n] .. token
+	local literals = {}
+	local types = {}
+	local lines = {}
+	local ranges = {}
+	local curLine = 1
+	local tokenStart = 1
+	local tokenEnd = 1
+	local sourceLen = #sourceBytes
+
+	function add(tokenType)
+		if tokenType == 'String' then
+			tokenStart = tokenStart + 1
+		end
+		local token = source:sub(tokenStart, tokenEnd)
+		if tokenType == 'append' then
+			local n = #literals
+			literals[n] = literals[n] .. token
+			lines[n] = curLine
+			ranges[n][2] = tokenEnd
+			tokenStart = tokenEnd + 1
+			return
+		elseif tokenType == 'variable' and keywords[token] then
+			tokenType = 'keyword'
+		end
+		local n = #literals + 1
+		literals[n] = token
+		types[n] = tokenType
 		lines[n] = curLine
-		ranges[n][2] = tokenEnd
+		ranges[n] = {tokenStart, tokenEnd}
 		tokenStart = tokenEnd + 1
-		return
-	elseif tokenType == 'variable' and keywords[token] then
-		tokenType = 'keyword'
-	end
-	local n = #literals + 1
-	literals[n] = token
-	types[n] = tokenType
-	lines[n] = curLine
-	ranges[n] = {tokenStart, tokenEnd}
-	tokenStart = tokenEnd + 1
-end
-
-while tokenEnd <= sourceLen do
-	if byte == 10 then
-		curLine = curLine + 1
 	end
 
-	--print(state, byte, nextByte)
+	while tokenEnd <= sourceLen do
+		if byte == 10 then
+			curLine = curLine + 1
+		end
 
-	local remember = states[state](byte, nextByte)
-	if remember ~= nil then
-		tokenEnd = tokenEnd + 1
-		byte = nextByte
-		nextByte = sourceBytes[tokenEnd + 1] or 0
-		if remember == false then
-			tokenStart = tokenEnd
+		--print(state, byte, nextByte)
+
+		local remember = states[state](byte, nextByte)
+		if remember ~= nil then
+			tokenEnd = tokenEnd + 1
+			byte = nextByte
+			nextByte = sourceBytes[tokenEnd + 1] or 0
+			if remember == false then
+				tokenStart = tokenEnd
+			end
 		end
 	end
+
+	if state ~= 'start' then
+		add 'invalid'
+	else
+		add 'eof'
+	end
+
+	return {
+		literals = literals,
+		types = types,
+		lines = lines,
+		ranges = ranges
+	}
 end
 
-if state ~= 'start' then
-	add 'invalid'
-else
-	add 'eof'
+return function(settings)
+	delimiters = settings.require 'grammars/lua/delimiters'
+	whitespace = settings.require 'grammars/lua/whitespace'
+	keywords = settings.require 'grammars/lua/reserved'
+	source = settings.read 'input'
+	sourceBytes = {source:byte(1, source:len())}
+	return tokenize()
 end
-
---[[
-for i, token in ipairs(literals) do
-	print(i, token, types[i], lines[i], ranges[i][1], ranges[i][2])
-end
-]]
-
-return {
-	literals = literals,
-	types = types,
-	lines = lines,
-	ranges = ranges
-}

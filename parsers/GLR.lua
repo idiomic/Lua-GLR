@@ -106,7 +106,7 @@ local function fireActions(node, ...)
 	action(i, ...)
 end
 
-return function(parseTable, syntax, tokens)
+local function parse(parseTable, syntax, tokens)
 	DFA = parseTable
 
 	local nodes = {[{cur = 1}] = true}
@@ -131,4 +131,8 @@ return function(parseTable, syntax, tokens)
 	end
 
 	return results
+end
+
+return function()
+	return parse
 end

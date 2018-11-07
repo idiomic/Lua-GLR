@@ -1,4 +1,5 @@
-local syntax = require('Syntax').define()
+return function(settings)
+local syntax = settings.require('productions/Syntax').define()
 
 local function list(production, sep)
 	return production * ((sep or delimiter[',']) * production) '*'
@@ -134,3 +135,4 @@ EXP = keyword['nil']
 	+ OP * EXP
 
 return syntax
+end

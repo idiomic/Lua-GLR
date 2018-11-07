@@ -14,7 +14,7 @@ local function shallowEqual(t1, t2)
 	return true
 end
 
-return function (syntax, start)
+local function create(syntax, start)
 	syntax:expand()
 
 	local expansionToItem = {[0] = 0}
@@ -122,4 +122,8 @@ return function (syntax, start)
 
 	-- Return the transitions
 	return stateToStates, reductionToStates
+end
+
+return function()
+	return create
 end

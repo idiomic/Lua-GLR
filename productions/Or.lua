@@ -41,4 +41,6 @@ function Or:expand(expansions)
 	return leftExpansions
 end
 
-return Or
+return function()
+	return Or
+end

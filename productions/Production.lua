@@ -1,5 +1,4 @@
-local Assembly = require 'productions/Assembly'
-local Expansion = require 'productions/Expansion'
+local Assembly, Expansion
 
 local Production = {}
 
@@ -151,7 +150,7 @@ function Production:__index(key)
 		return self.tokenType[key]
 	else
 		print(key, self)
-		error('Attempt to index a nonterminal production', 2)
+		error 'Attempt to index a nonterminal production'
 	end
 end
 
@@ -176,4 +175,8 @@ end
 function Production:__tostring() return self.token ~= '' and self.token or '[terminal type]' end
 Production.class = 'Production'
 
-return Production
+return function(settings)
+	Assembly = settings.require 'productions/Assembly'
+	Expansion = settings.require 'productions/Expansion'
+	return Production
+end

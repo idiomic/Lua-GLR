@@ -52,4 +52,6 @@ function And:expand(expansions)
 	return self.left:expand(expansions)
 end
 
-return And
+return function()
+	return And
+end

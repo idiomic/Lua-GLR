@@ -1,4 +1,4 @@
-return {[0] = true; true;
+return function() return {[0] = true; true;
 	true;
 	true;
 	true;
@@ -253,4 +253,4 @@ return {[0] = true; true;
 	true;
 	true;
 	true;
-}
+} end
