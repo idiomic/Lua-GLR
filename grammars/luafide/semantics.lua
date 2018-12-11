@@ -1,7 +1,21 @@
+local VAL_TYPE = {}
+local NODE_TYPE = {}
+local STMT_TYPE = {}
+
 return function(settings)
+	
+local denseMT = {
+	__index = settings.require 'grammars/luafide/env/denseIndex';
+}
+setmetatable(VAL_TYPE, denseMT)
+setmetatable(NODE_TYPE, denseMT)
+setmetatable(STMT_TYPE, denseMT)
 
 local syntax = settings.require 'grammars/lua/syntax'
 syntax:extend()
+
+local block = {}
+local refs = {}
 
 local function rename(rep, src)
 	for to, from in next, rep do
@@ -15,20 +29,31 @@ local function rename(rep, src)
 end
 
 function variable(t, o)
-	o[#o + 1] = t
+	if not block[t] then
+		block[t] = {
+			defined = false;
+			valueType = VAL_TYPE.UNKNOWN;
+			nodeType = NODE_TYPE.REF;
+			value = nil;
+			token = t;
+		}
+	end
+	o[#o + 1] = block[t]
 end
 
 function number(t, o)
 	o[#o + 1] = {
 		value = t;
-		type = 'number';
+		valueType = VAL_TYPE.NUMBER;
+		nodeType = NODE_TYPE.VALUE;
 	}
 end
 
 function String(t, o)
 	o[#o + 1] = {
 		value = t;
-		type = 'string';
+		valueType = VAL_TYPE.STRING;
+		nodeType = NODE_TYPE.VALUE;
 	}
 end
 
@@ -59,10 +84,24 @@ end
 function keyword(t, o)
 	if t == 'local' then
 		o.isLocal = true
+	elseif t == 'true' then
+		o[#o + 1] = {
+			value = true;
+			valueType = VAL_TYPE.BOOL;
+			nodeType = NODE_TYPE.VALUE;
+		}
+	elseif t == 'false' then
+		o[#o + 1] = {
+			value = false;
+			valueType = VAL_TYPE.BOOL;
+			nodeType = NODE_TYPE.VALUE;
+		}
 	elseif t == 'return' then
-		o.statement = 'RETURN'
+		o.stmtType = STMT_TYPE.RETURN
+		o.nodeType = NODE_TYPE.STMT
 	elseif t == 'break' then
-		o.statement = 'BREAK'
+		o.stmtType = STMT_TYPE.BREAK
+		o.nodeType = NODE_TYPE.STMT
 	elseif t == 'and' or t == 'or' or t == 'not' then
 		o.op = t
 	end
@@ -76,8 +115,12 @@ function LAST_STATEMENT(f, o)
 	o[#o + 1] = f{}
 end
 
-function EXP(f, o)
-	f(o)
+function UNI_EXP(f, o)
+	o[#o + 1] = f{}
+end
+
+function BIN_EXP(f, o)
+	o[#o + 1] = f{}
 end
 
 function DO(f, o)
@@ -89,7 +132,8 @@ local WHILE_rename = {
 }
 function WHILE(f, o)
 	o[#o + 1] = rename(WHILE_rename, f{
-		statement = 'WHILE';
+		stmtType = STMT_TYPE.WHILE;
+		nodeType = NODE_TYPE.STMT;
 	})
 end
 
@@ -98,7 +142,8 @@ local REPEAT_rename = {
 }
 function REPEAT(f, o)
 	o[#o + 1] = rename(REPEAT_rename, f{
-		statement = 'REPEAT';
+		stmtType = STMT_TYPE.REPEAT;
+		nodeType = NODE_TYPE.STMT;
 	})
 end
 
@@ -107,7 +152,8 @@ local IF_rename = {
 }
 function IF(f, o)
 	o[#o + 1] = rename(IF_rename, f{
-		statement = 'IF';
+		stmtType = STMT_TYPE.IF;
+		nodeType = NODE_TYPE.STMT;
 	})
 end
 
@@ -129,7 +175,8 @@ end
 
 function FOR(f, o)
 	o[#o + 1] = rename(FOR_rename, f{
-		statement = 'FOR';
+		stmtType = STMT_TYPE.FOR;
+		nodeType = NODE_TYPE.STMT;
 	})
 end
 
@@ -140,21 +187,52 @@ end
 
 function FOR_GENERIC(f, o)
 	o[#o + 1] = f{
-		statement = 'FOR_GENERIC';
+		stmtType = STMT_TYPE.FOR_GENERIC;
+		nodeType = NODE_TYPE.STMT;
 	}
-end
-
-function FUNC_NAME(f, o)
-	o.name = f{}
 end
 
 local FUNC_rename = {
 	name = 1;
 	isVararg = 2;
+	arguments = 'variables';
 }
+function LOCAL_FUNC(f, o)
+	local func = rename(FUNC_rename, f{
+		stmtType = STMT_TYPE.FUNC;
+		nodeType = NODE_TYPE.STMT;
+	})
+	local ref = func.name
+	ref.valueType = VAL_TYPE.FUNC
+	ref.value = func
+	ref.defined = true
+	o[#o + 1] = func
+end
+
+function FUNC_NAME(f, o)
+	o[#o + 1] = f{}
+end
+
 function FUNC(f, o)
-	o[#o + 1] = rename(FUNC_rename, f{
-		statement = 'FUNC';
+	local func = rename(FUNC_rename, f{
+		stmtType = STMT_TYPE.FUNC;
+		nodeType = NODE_TYPE.STMT;
+	})
+	local ref = func.name[#func.name]
+	ref.valueType = VAL_TYPE.FUNC
+	ref.value = func
+	ref.defined = true
+	o[#o + 1] = func
+end
+
+local ANON_FUNC_rename = {
+	isVararg = 1;
+	arguments = 'variables';
+}
+function ANON_FUNC(f, o)
+	o[#o + 1] = rename(ANON_FUNC_rename, f{
+		valueType = VAL_TYPE.FUNC;
+		nodeType = NODE_TYPE.VALUE;
 	})
 end
 
@@ -164,13 +242,15 @@ end
 
 function LOCAL_DEF(f, o)
 	o[#o + 1] = f{
-		statement = 'DEF';
+		stmtType = STMT_TYPE.DEF;
+		nodeType = NODE_TYPE.STMT;
 	}
-end 
+end
 
 function DEF(f, o)
 	o[#o + 1] = f{
-		statement = 'DEF'
+		stmtType = STMT_TYPE.DEF;
+		nodeType = NODE_TYPE.STMT;
 	}
 end
 
@@ -186,7 +266,8 @@ end
 
 function CALL_STATEMENT(f, o)
 	o[#o + 1] = f{
-		statement = 'CALL';
+		stmtType = STMT_TYPE.CALL;
+		nodeType = NODE_TYPE.STMT;
 	}
 end
 
@@ -205,8 +286,9 @@ end
 
 function TABLE(f, o)
 	o[#o + 1] = f{
-		type = 'table';
 		value = {};
+		valueType = VAL_TYPE.TABLE;
+		nodeType = NODE_TYPE.VALUE;
 	}
 end
 

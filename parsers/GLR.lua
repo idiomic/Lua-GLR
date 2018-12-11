@@ -5,6 +5,8 @@ local DFA
 local token
 local cache
 
+local print
+
 local function shift(node, action)
 	local new = {
 		cur = action;
@@ -27,7 +29,7 @@ local function reduce(prev, reduction)
 	end
 
 	local prod = reduction.production
-	return performAction {
+	performAction {
 		cur = DFA[prev.cur][prod];
 		prev = prev;
 		production = prod;
@@ -65,7 +67,7 @@ function performAction(node)
 	end
 
 	if type(action) == 'number' then
-		return shift(node, action)
+		return
 	end
 
 	for altAction in next, action do
@@ -129,10 +131,10 @@ local function parse(parseTable, syntax, tokens)
 	for node in next, nodes do
 		fireActions(node.prev, results)
 	end
-
 	return results
 end
 
-return function()
+return function(settings)
+	print = settings.debugPrint
 	return parse
 end

@@ -9,6 +9,8 @@ local function parens(production)
 	return delimiter['('] * production * delimiter[')']
 end
 
+local e
+
 START = CHUNK * eof
 
 local STATEMENT = DO
@@ -18,14 +20,50 @@ local STATEMENT = DO
 	+ FOR
 	+ FOR_GENERIC
 	+ FUNC
+	+ LOCAL_FUNC
 	+ LOCAL_DEF
 	+ DEF
 	+ CALL_STATEMENT
 
-local e
-
 CHUNK = STATEMENT '*' * (LAST_STATEMENT + e)
+
 local OPT_CHUNK = CHUNK + e
+
+local EXP = keyword['nil']
+	+ keyword['false']
+	+ keyword['true']
+	+ number
+	+ String
+	+ delimiter['...']
+	+ ANON_FUNC
+	+ PREFIX
+	+ TABLE
+	+ UNI_EXP
+	+ BIN_EXP
+
+local OP = delimiter['-']
+	+ keyword['not']
+	+ delimiter['#']
+
+UNI_EXP = OP * EXP
+
+local BINARY_OP = delimiter['+']
+	+ delimiter['-']
+	+ delimiter['*']
+	+ delimiter['/']
+	+ delimiter['^']
+	+ delimiter['%']
+	+ delimiter['..']
+	+ delimiter['<']
+	+ delimiter['<=']
+	+ delimiter['>']
+	+ delimiter['>=']
+	+ delimiter['==']
+	+ delimiter['~=']
+	+ keyword['and']
+	+ keyword['or']
+
+BIN_EXP = EXP * BINARY_OP * EXP
 
 EXP_LIST = list(EXP)
 
@@ -67,9 +105,9 @@ local DOT_INDEX = delimiter['.'] * variable
 
 FUNC_NAME = variable * DOT_INDEX '*' * METHOD
 
-FUNC = (keyword['local'] * keyword['function'] * variable
-		+ keyword['function'] * FUNC_NAME)
-	* FUNC_BODY
+FUNC = keyword['function'] * FUNC_NAME * FUNC_BODY
+	
+LOCAL_FUNC = keyword['local'] * keyword['function'] * variable * FUNC_BODY
 
 LOCAL_DEF = keyword['local'] * VARIABLE_LIST * (delimiter['='] * EXP_LIST + e)
 
@@ -101,38 +139,8 @@ TABLE = delimiter['{'] * (FIELD_LIST + e) * delimiter['}']
 FIELD = BRACKET_EXP * delimiter['='] * EXP
 	+ variable * delimiter['='] * EXP
 	+ EXP
-
-local BINARY_OP = delimiter['+']
-	+ delimiter['-']
-	+ delimiter['*']
-	+ delimiter['/']
-	+ delimiter['^']
-	+ delimiter['%']
-	+ delimiter['..']
-	+ delimiter['<']
-	+ delimiter['<=']
-	+ delimiter['>']
-	+ delimiter['>=']
-	+ delimiter['==']
-	+ delimiter['~=']
-	+ keyword['and']
-	+ keyword['or']
-
-local OP = delimiter['-']
-	+ keyword['not']
-	+ delimiter['#']
-
-EXP = keyword['nil']
-	+ keyword['false']
-	+ keyword['true']
-	+ number
-	+ String
-	+ delimiter['...']
-	+ keyword['function'] * FUNC_BODY
-	+ PREFIX
-	+ TABLE
-	+ EXP * BINARY_OP * EXP
-	+ OP * EXP
+	
+ANON_FUNC = keyword['function'] * FUNC_BODY
 
 return syntax
 end

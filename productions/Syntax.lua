@@ -7,7 +7,8 @@ Syntax.__index = Syntax
 local envToSyntax = {}
 
 function Syntax.define()
-	local env = getfenv(2)
+	local env = {oldEnv = getfenv(2)}
+	setfenv(2, env)
 
 	local new = setmetatable({
 		terminals = {};
@@ -19,11 +20,13 @@ function Syntax.define()
 	env._NUM_AUTOS = 0
 
 	setmetatable(env, Environment)
+	
 	return new
 end
 
 function Syntax:extend()
-	local env = getfenv(2)
+	local env = {oldEnv = getfenv(2)}
+	setfenv(2, env)
 
 	envToSyntax[env] = self
 
@@ -37,6 +40,7 @@ function Syntax:findFirst()
 	if self.isFirstDefined then
 		return
 	end
+
 	self.isFirstDefined = true
 
 	for _, terminalType in next, self.terminals do
@@ -53,7 +57,9 @@ end
 function Syntax:findFollow()
 	if self.isFollowDefined then
 		return
-	elseif not self.isFirstDefined then
+	end
+	
+	if not self.isFirstDefined then
 		self:findFirst()
 	end
 	self.isFollowDefined = true
@@ -71,6 +77,7 @@ function Syntax:expand()
 	if self.isExpanded then
 		return
 	end
+
 	self.isExpanded = true
 
 	local expansions = {}
@@ -157,7 +164,7 @@ function Syntax:set(key, value)
 end
 
 function Environment:__index(key)
-	return envToSyntax[self]:get(key)
+	return self.oldEnv[key] or envToSyntax[self]:get(key)
 end
 
 function Environment:__newindex(key, value)

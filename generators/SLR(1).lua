@@ -1,5 +1,6 @@
 local Collection
 
+
 local function generate(syntax)
 	local start = syntax.productions.START
 	if not start then

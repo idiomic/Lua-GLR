@@ -14,7 +14,7 @@ local function shallowEqual(t1, t2)
 	return true
 end
 
-local function create(syntax, start)
+local function create(syntax, startProd)
 	syntax:expand()
 
 	local expansionToItem = {[0] = 0}
@@ -41,7 +41,7 @@ local function create(syntax, start)
 	end
 
 	-- Create the start state
-	local startItem = expansionToItem[next(start.expansions).id - 1] + 1
+	local startItem = expansionToItem[next(startProd.expansions).id - 1] + 1
 	stateToKernel[1] = {[startItem] = true}
 	stateToStates[1] = {}
 	itemToStates[startItem][1] = 1
@@ -106,10 +106,11 @@ local function create(syntax, start)
 				for kernelItem in next, items do
 					itemToStates[kernelItem][toState] = true
 				end
-			end
+						end
 
 			states[symbol] = toState
 		end
+
 		state = state + 1
 	until state > #stateToStates
 

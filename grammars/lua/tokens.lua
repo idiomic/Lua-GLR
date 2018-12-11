@@ -259,10 +259,11 @@ local function tokenize()
 		end
 	end
 
-	if state ~= 'start' then
-		add 'invalid'
-	else
+	if state == 'start' or state == 'skip' then
 		add 'eof'
+	else
+		warn('Invalid final tokenizer state: ' .. state)
+		add 'invalid'
 	end
 
 	return {
