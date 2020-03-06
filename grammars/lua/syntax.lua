@@ -13,7 +13,7 @@ local e
 
 START = CHUNK * eof
 
-local STATEMENT = DO
+local STATEMENT = (DO
 	+ WHILE
 	+ REPEAT
 	+ IF
@@ -23,7 +23,7 @@ local STATEMENT = DO
 	+ LOCAL_FUNC
 	+ LOCAL_DEF
 	+ DEF
-	+ CALL_STATEMENT
+	+ CALL_STATEMENT) * delimiter[';'] '*'
 
 CHUNK = STATEMENT '*' * (LAST_STATEMENT + e)
 
