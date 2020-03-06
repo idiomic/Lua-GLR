@@ -67,7 +67,7 @@ function performAction(node)
 	end
 
 	if type(action) == 'number' then
-		return
+		return shift(node, action)
 	end
 
 	for altAction in next, action do
