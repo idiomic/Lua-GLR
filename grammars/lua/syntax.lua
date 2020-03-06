@@ -101,7 +101,7 @@ local FUNC_BODY = parens(PARAMS) * OPT_CHUNK * keyword['end']
 
 local METHOD = delimiter[':'] * variable + e
 
-local DOT_INDEX = delimiter['.'] * variable
+DOT_INDEX = delimiter['.'] * variable
 
 FUNC_NAME = variable * DOT_INDEX '*' * METHOD
 

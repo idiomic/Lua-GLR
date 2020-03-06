@@ -1,6 +1,7 @@
 local VAL_TYPE = {}
 local NODE_TYPE = {}
 local STMT_TYPE = {}
+local NIL = {}
 
 return function(settings)
 	
@@ -14,9 +15,6 @@ setmetatable(STMT_TYPE, denseMT)
 local syntax = settings.require 'grammars/lua/syntax'
 syntax:extend()
 
-local block = {}
-local refs = {}
-
 local function rename(rep, src)
 	for to, from in next, rep do
 		if src[from] then
@@ -29,32 +27,18 @@ local function rename(rep, src)
 end
 
 function variable(t, o)
-	if not block[t] then
-		block[t] = {
-			defined = false;
-			valueType = VAL_TYPE.UNKNOWN;
-			nodeType = NODE_TYPE.REF;
-			value = nil;
-			token = t;
-		}
-	end
-	o[#o + 1] = block[t]
+	o[#o + 1] = {
+		nodeType = NODE_TYPE.REF;
+		token = t;
+	}
 end
 
 function number(t, o)
-	o[#o + 1] = {
-		value = t;
-		valueType = VAL_TYPE.NUMBER;
-		nodeType = NODE_TYPE.VALUE;
-	}
+	o[#o + 1] = tonumber(t)
 end
 
 function String(t, o)
-	o[#o + 1] = {
-		value = t;
-		valueType = VAL_TYPE.STRING;
-		nodeType = NODE_TYPE.VALUE;
-	}
+	o[#o + 1] = t
 end
 
 local isOp = {
@@ -85,20 +69,14 @@ function keyword(t, o)
 	if t == 'local' then
 		o.isLocal = true
 	elseif t == 'true' then
-		o[#o + 1] = {
-			value = true;
-			valueType = VAL_TYPE.BOOL;
-			nodeType = NODE_TYPE.VALUE;
-		}
+		o[#o + 1] = true
 	elseif t == 'false' then
-		o[#o + 1] = {
-			value = false;
-			valueType = VAL_TYPE.BOOL;
-			nodeType = NODE_TYPE.VALUE;
-		}
+		o[#o + 1] = false
 	elseif t == 'return' then
 		o.stmtType = STMT_TYPE.RETURN
 		o.nodeType = NODE_TYPE.STMT
+	elseif t == 'nil' then
+		o[#o + 1] = NIL
 	elseif t == 'break' then
 		o.stmtType = STMT_TYPE.BREAK
 		o.nodeType = NODE_TYPE.STMT
@@ -116,11 +94,17 @@ function LAST_STATEMENT(f, o)
 end
 
 function UNI_EXP(f, o)
-	o[#o + 1] = f{}
+	o[#o + 1] = f{
+		valueType = VAL_TYPE.UNI_OP;
+		nodeType = NODE_TYPE.EXP;
+	}
 end
 
 function BIN_EXP(f, o)
-	o[#o + 1] = f{}
+	o[#o + 1] = f{
+		valueType = VAL_TYPE.BIN_OP;
+		nodeType = NODE_TYPE.EXP;
+	}
 end
 
 function DO(f, o)
@@ -167,10 +151,13 @@ end
 
 local FOR_rename = {
 	var = 1;
+	value = 2;
+	stop = 3;
+	change = 4;
 }
 
 function EXP_LIST(f, o)
-	o.exps = f{}
+	f(o)
 end
 
 function FOR(f, o)
@@ -184,12 +171,17 @@ function VARIABLE_LIST(f, o)
 	o.variables = f{}
 end
 
-
+-- Note: additional values in the expression list are allowed
+local FOR_GENERIC_rename = {
+	iterator = 1;
+	state = 2;
+	value = 3;
+}
 function FOR_GENERIC(f, o)
-	o[#o + 1] = f{
+	o[#o + 1] = rename(FOR_GENERIC_rename, f{
 		stmtType = STMT_TYPE.FOR_GENERIC;
 		nodeType = NODE_TYPE.STMT;
-	}
+	})
 end
 
 local FUNC_rename = {
@@ -202,10 +194,6 @@ function LOCAL_FUNC(f, o)
 		stmtType = STMT_TYPE.FUNC;
 		nodeType = NODE_TYPE.STMT;
 	})
-	local ref = func.name
-	ref.valueType = VAL_TYPE.FUNC
-	ref.value = func
-	ref.defined = true
 	o[#o + 1] = func
 end
 
@@ -218,10 +206,6 @@ function FUNC(f, o)
 		stmtType = STMT_TYPE.FUNC;
 		nodeType = NODE_TYPE.STMT;
 	})
-	local ref = func.name[#func.name]
-	ref.valueType = VAL_TYPE.FUNC
-	ref.value = func
-	ref.defined = true
 	o[#o + 1] = func
 end
 
@@ -232,7 +216,7 @@ local ANON_FUNC_rename = {
 function ANON_FUNC(f, o)
 	o[#o + 1] = rename(ANON_FUNC_rename, f{
 		valueType = VAL_TYPE.FUNC;
-		nodeType = NODE_TYPE.VALUE;
+		nodeType = NODE_TYPE.EXP;
 	})
 end
 
@@ -260,6 +244,11 @@ function BRACKET_EXP(f, o)
 	}
 end
 
+function DOT_INDEX(f, o)
+	f(o)
+	o[#o] = o[#o].token
+end
+
 function VAR(f, o)
 	f(o)
 end
@@ -272,7 +261,10 @@ function CALL_STATEMENT(f, o)
 end
 
 function CALL_EXP(f, o)
-	o[#o + 1] = f{}
+	o[#o + 1] = f{
+		valueType = VAL_TYPE.CALL;
+		nodeType = NODE_TYPE.EXP;
+	}
 end
 
 function PREFIX(f, o)
@@ -280,24 +272,26 @@ function PREFIX(f, o)
 end
 
 function ARGS(f, o)
-	local key, value = next(f{})
-	o.args = value
+	o.args = f{}
 end
 
 function TABLE(f, o)
 	o[#o + 1] = f{
-		value = {};
 		valueType = VAL_TYPE.TABLE;
-		nodeType = NODE_TYPE.VALUE;
+		nodeType = NODE_TYPE.EXP;
 	}
 end
 
 function FIELD(f, o)
 	local record = f{}
-	if record[2] then
-		o.value[record[1]] = record[2]
+	if record[2] ~= nil then
+		if record[1].isBracket then
+			o[record[1][1]] = record[2]
+		else
+			o[record[1].token] = record[2]
+		end
 	else
-		o.value[#o.value + 1] = record[1]
+		o[#o + 1] = record[1]
 	end
 end
 

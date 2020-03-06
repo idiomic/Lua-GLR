@@ -16,7 +16,7 @@ function settings.read(src)
 	return source
 end
 
-local syntax = settings.require 'grammars/tableParser/semantics'
+local syntax = settings.require 'grammars/luafide/semantics'
 local tokens = settings.require 'grammars/lua/tokens'
 local SLR = settings.require 'generators/SLR(1)'
 local parse = settings.require 'parsers/GLR'
