@@ -56,27 +56,36 @@ local function isCached(leafNode)
 	return false
 end
 
-function performAction(node)
-	if isCached(node) then
+local function _performAction(node, _action)
+	if not _action then
 		return
 	end
 
-	local action = DFA[node.cur][terminal]
-	if not action then
-		return
+	if type(_action) == 'number' then
+		return shift(node, _action)
 	end
 
-	if type(action) == 'number' then
-		return shift(node, action)
-	end
-
-	for altAction in next, action do
+	for altAction in next, _action do
 		if type(altAction) == 'number' then
 			shift(node, altAction)
 		else
 			reduce(node, altAction)
 		end
 	end
+end
+
+function performAction(node)
+	if isCached(node) then
+		return
+	end
+
+	-- Check the more general path for this token as well
+	-- e.g. "delimiter[';']" also triggers actions for "delimiter"
+	if terminal.token ~= '' then
+		_performAction(node, DFA[node.cur][terminal.tokenType['']])
+	end
+
+	return _performAction(node, DFA[node.cur][terminal])
 end
 
 local function fireActions(node, ...)
