@@ -2,18 +2,20 @@ local Assembly, Expansion
 
 local Production = {}
 
-function Production.new(tokenType, token)
+function Production.new(tokenType, token, typename)
 	local isTerminal = tokenType and true or false
 
 	local new = setmetatable({
 		tokenType = tokenType;
 		token = token;
+		typename = typename;
 		isDefined = false;
 		isExtended = false;
 		isExpanded = false;
 		isOptional = false;
 		isRepeated = false;
 		isTerminal = isTerminal;
+		isTerminalSet = isTerminal;
 		isFirstFound = isTerminal;
 		addedFollow = false;
 		expansions = {};
@@ -160,6 +162,12 @@ end
 function Production:__add(other)
 	return Assembly.new(self, other, Assembly.Or)
 end
+function Production:__pow(other)
+	return Assembly.new(self, other, Assembly.Conjugate)
+end
+function Production:__sub(other)
+	return Assembly.new(self, other, Assembly.Except)
+end
 function Production:__call(op)
 	if op == '?' then
 		return Assembly.new(self)
@@ -167,12 +175,27 @@ function Production:__call(op)
 		self.isOptional = true
 		self.isRepeated = true
 		return self
+	elseif op == '+' then
+		return self * self '*'
 	else
 		error 'Attempt to call an assembly of productions'
 	end
 	return self
 end
-function Production:__tostring() return self.token ~= '' and self.token or '[terminal type]' end
+
+function Production:__tostring()
+	if self.token == '' then
+		return self.typename
+	elseif self.token then
+		return self.token
+	else
+		print("DEBUG")
+		for key, value in next, self do
+			print(key, value)
+		end
+		print("END DEBUG")
+	end
+end
 Production.class = 'Production'
 
 return function(settings)

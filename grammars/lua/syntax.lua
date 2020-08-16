@@ -13,7 +13,7 @@ local e
 
 START = CHUNK * eof
 
-local STATEMENT = (DO
+STATEMENT = DO
 	+ WHILE
 	+ REPEAT
 	+ IF
@@ -23,16 +23,19 @@ local STATEMENT = (DO
 	+ LOCAL_FUNC
 	+ LOCAL_DEF
 	+ DEF
-	+ CALL_STATEMENT) * delimiter[';'] '*'
+	+ CALL_STATEMENT
 
-CHUNK = STATEMENT '*' * (LAST_STATEMENT + e)
 
-local OPT_CHUNK = CHUNK + e
 
-local EXP = keyword['nil']
+CHUNK = (STATEMENT * delimiter[';']'?')'*' * LAST_STATEMENT'?'
+
+OPT_CHUNK = CHUNK + e
+
+EXP = keyword['nil']
 	+ keyword['false']
 	+ keyword['true']
 	+ number
+	+ hexadecimal
 	+ String
 	+ delimiter['...']
 	+ ANON_FUNC
@@ -41,13 +44,13 @@ local EXP = keyword['nil']
 	+ UNI_EXP
 	+ BIN_EXP
 
-local OP = delimiter['-']
+OP = delimiter['-']
 	+ keyword['not']
 	+ delimiter['#']
 
 UNI_EXP = OP * EXP
 
-local BINARY_OP = delimiter['+']
+BINARY_OP = delimiter['+']
 	+ delimiter['-']
 	+ delimiter['*']
 	+ delimiter['/']
@@ -67,7 +70,7 @@ BIN_EXP = EXP * BINARY_OP * EXP
 
 EXP_LIST = list(EXP)
 
-local OPT_EXP_LIST = EXP_LIST + e
+OPT_EXP_LIST = EXP_LIST + e
 
 LAST_STATEMENT = keyword['return'] * OPT_EXP_LIST
 	+ keyword['break']
@@ -81,7 +84,7 @@ WHILE = keyword['while'] * EXP * DO_CHUNK
 REPEAT = keyword['repeat'] * OPT_CHUNK * keyword['until'] * EXP
 
 IF = keyword['if'] * EXP * keyword['then'] * OPT_CHUNK
-	* ELSEIF '*' * (ELSE + e) * keyword['end']
+	* ELSEIF'*' * ELSE'?' * keyword['end']
 
 ELSEIF = keyword['elseif'] * EXP * keyword['then'] * OPT_CHUNK
 
@@ -93,17 +96,16 @@ VARIABLE_LIST = list(variable)
 
 FOR_GENERIC = keyword['for'] * VARIABLE_LIST * keyword['in'] * EXP_LIST * DO_CHUNK
 
-local PARAMS = VARIABLE_LIST * (delimiter[','] * delimiter['...'] + e)
+PARAMS = VARIABLE_LIST * (delimiter[','] * delimiter['...'] + e)
 	+ delimiter['...']
-	+ e
 
-local FUNC_BODY = parens(PARAMS) * OPT_CHUNK * keyword['end']
+FUNC_BODY = parens(PARAMS'?') * OPT_CHUNK * keyword['end']
 
-local METHOD = delimiter[':'] * variable + e
+METHOD = delimiter[':'] * variable
 
 DOT_INDEX = delimiter['.'] * variable
 
-FUNC_NAME = variable * DOT_INDEX '*' * METHOD
+FUNC_NAME = variable * DOT_INDEX'*' * METHOD'?'
 
 FUNC = keyword['function'] * FUNC_NAME * FUNC_BODY
 	
@@ -120,7 +122,7 @@ BRACKET_EXP = delimiter['['] * EXP * delimiter[']']
 VAR = variable
 	+ PREFIX * (BRACKET_EXP + DOT_INDEX)
 
-local CALL = PREFIX * METHOD * ARGS
+CALL = PREFIX * METHOD * ARGS
 
 CALL_EXP = CALL
 
@@ -130,11 +132,11 @@ PREFIX = VAR + CALL_EXP + parens(EXP)
 
 ARGS = parens(OPT_EXP_LIST) + TABLE + String
 
-local FIELD_SEP = delimiter[','] + delimiter[';']
+FIELD_SEP = delimiter[','] + delimiter[';']
 
-local FIELD_LIST = list(FIELD, FIELD_SEP) * (FIELD_SEP + e)
+FIELD_LIST = list(FIELD, FIELD_SEP) * FIELD_SEP'?'
 
-TABLE = delimiter['{'] * (FIELD_LIST + e) * delimiter['}']
+TABLE = delimiter['{'] * FIELD_LIST'?' * delimiter['}']
 
 FIELD = BRACKET_EXP * delimiter['='] * EXP
 	+ variable * delimiter['='] * EXP

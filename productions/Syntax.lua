@@ -6,6 +6,8 @@ Syntax.__index = Syntax
 
 local envToSyntax = {}
 
+local settings
+
 function Syntax.define()
 	local env = {oldEnv = getfenv(2)}
 	setfenv(2, env)
@@ -13,6 +15,7 @@ function Syntax.define()
 	local new = setmetatable({
 		terminals = {};
 		productions = {};
+		terminal_types = {};
 	}, Syntax)
 	envToSyntax[env] = new
 
@@ -95,6 +98,14 @@ function Syntax:expand()
 	end
 	expansions.maxLen = maxLen
 	self.expansions = expansions
+
+	if settings.DEBUG_syntax_expansions then
+		settings.dstart 'Expansions: ['
+		for i, expansion in ipairs(expansions) do
+			settings.dprint(tostring(i) .. ' ' .. tostring(expansion))
+		end
+		settings.dfinish ']'
+	end
 end
 
 function Syntax:getTerminals(tokens)
@@ -112,13 +123,30 @@ function Syntax:getTerminals(tokens)
 			terminals[i] = general['']
 		end
 	end
+	if settings.DEBUG_syntax_terminals then
+		settings.dstart 'Terminals: ['
+		local token_fmt = '%d %s'
+		local literal_fmt = '%d %s "%s"'
+		for i, terminal in next, terminals do
+			if terminal.token == '' then
+				settings.dprint(literal_fmt:format(i, terminal, literals[i]))
+			else
+				settings.dprint(token_fmt:format(i, terminal))
+			end
+		end
+		settings.dfinish ']'
+	end
+
 	return terminals
 end
 
-function Syntax:get(key)
+function Syntax:get(key, no_create)
 	if key == key:upper() then
 		local storage = self.productions
 		if not storage[key] then
+			if no_create then
+				return
+			end
 			storage[key] = Production.new(false, key)
 				or Production.new(key, '')
 		end
@@ -126,8 +154,11 @@ function Syntax:get(key)
 	else
 		local storage = self.terminals
 		if not storage[key] then
+			if no_create then
+				return
+			end
 			storage[key] = {}
-			return Production.new(storage[key], '')
+			return Production.new(storage[key], '', key)
 		end
 		return storage[key]['']
 	end
@@ -135,20 +166,19 @@ end
 
 function Syntax:set(key, value)
 	if type(value) == 'function' then
-		self:get(key).semanticAction = value
+		local prod = self:get(key, true)
+		if not prod then
+			error('Attempt to add a semantic action to "' .. tostring(key) .. '" which was not defined in the syntax.', 2)
+		end
+		prod.semanticAction = value
 		return
 	end
 
 	if key ~= key:upper() then
-		error('Attempt to define a terminal symbol', 2)
+		error('Attempt to define a terminal symbol ' .. tostring(key), 2)
 	end
 
 	local nonterminal = self:get(key)
-
-	if type(value) == 'function' then
-		nonterminal.semanticAction = value
-		return
-	end
 
 	if value.class == 'Production' then
 		value = Assembly.new(value, value, Assembly.Or)
@@ -171,7 +201,9 @@ function Environment:__newindex(key, value)
 	envToSyntax[self]:set(key, value)
 end
 
-return function(settings)
+return function(cur_settings)
+	settings = cur_settings
+
 	Assembly = settings.require 'productions/Assembly'
 	Production = settings.require 'productions/Production'
 	return Syntax

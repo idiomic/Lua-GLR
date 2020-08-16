@@ -6,7 +6,7 @@ local NIL = {}
 return function(settings)
 	
 local denseMT = {
-	__index = settings.require 'grammars/luafide/env/denseIndex';
+	__index = settings.require 'grammars/lua/env/denseIndex';
 }
 setmetatable(VAL_TYPE, denseMT)
 setmetatable(NODE_TYPE, denseMT)
@@ -56,6 +56,7 @@ local isOp = {
 	['~='] = true;
 }
 function delimiter(t, o)
+	print(t)
 	if t == '...' then
 		o[#o + 1] = t
 	elseif t == ':' then

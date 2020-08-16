@@ -1,3 +1,5 @@
+local settings
+
 local function shallowEqual(t1, t2)
 	for key, value in next, t1 do
 		if t2[key] ~= value then
@@ -106,7 +108,7 @@ local function create(syntax, startProd)
 				for kernelItem in next, items do
 					itemToStates[kernelItem][toState] = true
 				end
-						end
+			end
 
 			states[symbol] = toState
 		end
@@ -121,10 +123,15 @@ local function create(syntax, startProd)
 		reductionToStates[reduction] = itemToStates[item]
 	end
 
+	if settings.DEBUG_LR0 then
+
+	end
+
 	-- Return the transitions
 	return stateToStates, reductionToStates
 end
 
-return function()
+return function(cur_settings)
+	settings = cur_settings
 	return create
 end

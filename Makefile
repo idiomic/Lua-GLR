@@ -1,2 +1,2 @@
 all:
-	@lua main.lua
+	@luajit main.lua

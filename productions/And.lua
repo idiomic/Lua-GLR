@@ -24,7 +24,7 @@ function And:extendFirst(index)
 end
 
 function And:aggregateFirst(visited, count)
-	if self.left.isOptional then
+	if self.required.right and self.left.isOptional then
 		self.right:aggregateFirst(visited, count + 1)
 		self:grabFirst 'right'
 	end
