@@ -33,7 +33,7 @@ function variable(t, o)
 	}
 end
 
-function number(t, o)
+function decimal(t, o)
 	o[#o + 1] = tonumber(t)
 end
 
@@ -55,8 +55,14 @@ local isOp = {
 	['=='] = true;
 	['~='] = true;
 }
+
+local function op(t, o)
+	o.op = t
+end
+UNARY_OP = op
+BINARY_OP = op
+
 function delimiter(t, o)
-	print(t)
 	if t == '...' then
 		o[#o + 1] = t
 	elseif t == ':' then

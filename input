@@ -1,8 +1,5 @@
-local function foo(a)
-	for a, b, c in f, s, i, oops do
-		local f = function(x, y, z)
-			return x + y + z
-		end
-	end
-	return f
+local function foo(a, b)
+	return a + b
 end
+
+foo(1, 2)

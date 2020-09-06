@@ -91,30 +91,28 @@ end
 local function fireActions(node, ...)
 	local prod = node.production
 	local action = prod.semanticAction
-	if not action then
-		if prod.isTerminal then
-			prod = prod.tokenType['']
-			action = prod.semanticAction
-			if not action then
-				return
-			end
-		else
-			return
-		end
+	if not action and prod.isTerminal then
+		prod = prod.tokenType['']
+		action = prod.semanticAction
 	end
 
-	local i = node.token
-	if not i then
-		i = function(...)
-			for j = #node.popedNodes, 1, -1 do
-				local subNode = node.popedNodes[j]
-				fireActions(subNode, ...)
+	if action then
+		local i = node.token
+		if not i then
+			i = function(...)
+				for j = #node.popedNodes, 1, -1 do
+					fireActions(node.popedNodes[j], ...)
+				end
+				return ...
 			end
-			return ...
+		end
+
+		action(i, ...)
+	elseif not node.token then
+		for j = #node.popedNodes, 1, -1 do
+			fireActions(node.popedNodes[j], ...)
 		end
 	end
-
-	action(i, ...)
 end
 
 local function parse(parseTable, syntax, tokens)

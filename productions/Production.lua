@@ -15,7 +15,6 @@ function Production.new(tokenType, token, typename)
 		isOptional = false;
 		isRepeated = false;
 		isTerminal = isTerminal;
-		isTerminalSet = isTerminal;
 		isFirstFound = isTerminal;
 		addedFollow = false;
 		expansions = {};
@@ -162,12 +161,6 @@ end
 function Production:__add(other)
 	return Assembly.new(self, other, Assembly.Or)
 end
-function Production:__pow(other)
-	return Assembly.new(self, other, Assembly.Conjugate)
-end
-function Production:__sub(other)
-	return Assembly.new(self, other, Assembly.Except)
-end
 function Production:__call(op)
 	if op == '?' then
 		return Assembly.new(self)
@@ -186,14 +179,8 @@ end
 function Production:__tostring()
 	if self.token == '' then
 		return self.typename
-	elseif self.token then
-		return self.token
 	else
-		print("DEBUG")
-		for key, value in next, self do
-			print(key, value)
-		end
-		print("END DEBUG")
+		return self.token
 	end
 end
 Production.class = 'Production'

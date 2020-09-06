@@ -3,24 +3,10 @@ local Assembly = {}
 function Assembly.new(arg1, arg2, op)
 	op = arg2 and op or Assembly.Opt
 
-	local isTerminalSet = arg1.isTerminalSet
-		and op ~= Assembly.And
-		and op ~= Assembly.Opt
-	if arg2 then
-		isTerminalSet = isTerminalSet and arg2.isTerminalSet
-	end
-
-	if not isTerminalSet and (op == Assembly.Neg or op == Assembly.Con) then
-		error([[
-Attempt to negate or conjugate an assembly which is not a set of terminals
-(contains a nonterminals, sequences, or optionals)]])
-	end
-
 	local value = setmetatable({
 		op = op;
 		isOptional = false;
 		isFirstFound = false;
-		isTerminalSet = isTerminalSet;
 		first = {};
 		-- Storing references for assemblies allows some pretty
 		-- cool things, like using variables when defining a syntax
@@ -176,8 +162,6 @@ end
 
 function Assembly:__mul(other) return self:new(other, Assembly.And) end
 function Assembly:__add(other) return self:new(other, Assembly.Or) end
-function Assembly:__pow(other) return self:new(other, Assembly.Conjugate) end
-function Assembly:__sub(other) return self:new(other, Assembly.Except) end
 
 local function autoSemanticAction(f, o)
 	return f(o)
@@ -227,7 +211,5 @@ return function(settings)
 	Assembly.Or = settings.require 'productions/Or'
 	Assembly.And = settings.require 'productions/And'
 	Assembly.Opt = settings.require 'productions/Opt'
-	Assembly.Except = settings.require 'productions/Except'
-	Assembly.Conjugate = settings.require 'productions/Conjugate'
 	return Assembly
 end

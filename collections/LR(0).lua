@@ -123,10 +123,6 @@ local function create(syntax, startProd)
 		reductionToStates[reduction] = itemToStates[item]
 	end
 
-	if settings.DEBUG_LR0 then
-
-	end
-
 	-- Return the transitions
 	return stateToStates, reductionToStates
 end

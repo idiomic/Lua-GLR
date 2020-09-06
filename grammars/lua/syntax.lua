@@ -25,8 +25,6 @@ STATEMENT = DO
 	+ DEF
 	+ CALL_STATEMENT
 
-
-
 CHUNK = (STATEMENT * delimiter[';']'?')'*' * LAST_STATEMENT'?'
 
 OPT_CHUNK = CHUNK + e
@@ -34,7 +32,7 @@ OPT_CHUNK = CHUNK + e
 EXP = keyword['nil']
 	+ keyword['false']
 	+ keyword['true']
-	+ number
+	+ decimal
 	+ hexadecimal
 	+ String
 	+ delimiter['...']
@@ -44,11 +42,11 @@ EXP = keyword['nil']
 	+ UNI_EXP
 	+ BIN_EXP
 
-OP = delimiter['-']
+UNARY_OP = delimiter['-']
 	+ keyword['not']
 	+ delimiter['#']
 
-UNI_EXP = OP * EXP
+UNI_EXP = UNARY_OP * EXP
 
 BINARY_OP = delimiter['+']
 	+ delimiter['-']
@@ -122,7 +120,7 @@ BRACKET_EXP = delimiter['['] * EXP * delimiter[']']
 VAR = variable
 	+ PREFIX * (BRACKET_EXP + DOT_INDEX)
 
-CALL = PREFIX * METHOD * ARGS
+CALL = PREFIX * METHOD'?' * ARGS
 
 CALL_EXP = CALL
 
