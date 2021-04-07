@@ -58,7 +58,7 @@ local function generate(syntax)
 			for nextSymbol in next, reduction.production.follow do
 				local trans = state[nextSymbol]
 				if not trans then
-					state[nextSymbol] = {[reduction] = true}
+					state[nextSymbol] = reduction
 				elseif type(trans) == 'table' then
 					trans[reduction] = true
 				else

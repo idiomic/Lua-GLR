@@ -1,6 +1,7 @@
 local settings = {
 	DEBUG_extendFirst = false;
 	DEBUG_aggregateFirst = false;
+	DEBUG_first = true;
 	DEBUG_syntax_expansions = true;
 	DEBUG_syntax_terminals = false;
 	DEBUG_SLR1_goto = true;

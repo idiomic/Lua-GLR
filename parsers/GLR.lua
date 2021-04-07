@@ -72,6 +72,8 @@ local function _performAction(node, _action)
 
 	if type(_action) == 'number' then
 		return shift(node, _action)
+	elseif _action[1] then
+		return reduce(node, _action)
 	end
 
 	dstart 'split = {'

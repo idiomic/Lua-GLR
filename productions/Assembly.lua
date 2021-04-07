@@ -71,7 +71,7 @@ function Assembly:combineFirsts(others)
 			-- References (nonterminal productions) are resolved later
 			-- Additional cycles will rewrite the firsts of these references
 			for first in next, assembly.first do
-				self.first[first] = value
+				self.first[first] = true
 				if not first.isTerminal then
 					first.first = self.first
 				end

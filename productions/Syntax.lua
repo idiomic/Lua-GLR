@@ -77,7 +77,7 @@ function Syntax:findFirst()
 	-- For each terminal type
 	for _, terminalType in next, self.terminals do
 		-- For each terminal
-		for _, terminal in next, terminalType do
+		for __, terminal in next, terminalType do
 			-- Extend up the assembly trees
 			terminal:extendFirst()
 		end
@@ -114,6 +114,30 @@ function Syntax:findFollow()
 	-- following symbols
 	for _, production in next, self.productions do
 		production:compileFollow{}
+	end
+
+	if settings.DEBUG_first then
+		settings.dstart 'DEBUG follow = {'
+
+		for _, terminalType in next, self.terminals do
+			for __, terminal in next, terminalType do
+				local follow = {}
+				for symbol in next, terminal.follow do
+					follow[#follow + 1] = tostring(symbol)
+				end
+				settings.dprint(tostring(terminal), table.concat(follow, ', '))
+			end
+		end
+
+		for _, production in next, self.productions do
+			local follow = {}
+			for symbol in next, production.follow do
+				follow[#follow + 1] = tostring(symbol)
+			end
+			settings.dprint(tostring(production), table.concat(follow, ', '))
+		end
+
+		settings.dfinish '}'
 	end
 end
 
