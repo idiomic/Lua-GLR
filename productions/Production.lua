@@ -19,7 +19,10 @@ function Production.new(tokenType, token, typename)
 		addedFollow = false;
 		expansions = {};
 		follow = {};
+		first = nil;
 		references = {};
+		rep = false;
+		definition = false;
 		semanticAction = false;
 	}, Production)
 
@@ -30,19 +33,22 @@ function Production.new(tokenType, token, typename)
 	return new
 end
 
+-- Extends this production's first to all the
+-- assemblies which reference it.
 function Production:extendFirst()
 	if self.isExtended then
 		return
 	end
 	self.isExtended = true
 
+	-- Note: terminals had first defined
+	-- as themselves in the constructor
 	if not self.isTerminal then
-		if self.isDefined then
-			self.first = self.definition.first
-			self.isFirstFound = true
-		else
-			error('Nonterminal ' .. tostring(self) .. ' was not defined', 2)
-		end
+		-- Nonterminals can only reach this point if their defining
+		-- assembly has already computed its first set and is now
+		-- calling the non-terminals it defines.
+		self.first = self.definition.first
+		self.isFirstFound = true
 	end
 
 	for assembly, index in next, self.references do
@@ -56,13 +62,17 @@ function Production:aggregateFirst(visited, count)
 	end
 
 	if not self.isDefined then
-		error('Nonterminal ' .. tostring(self) .. ' was not defined', 2)
+		error('Nonterminal ' .. tostring(self) .. ' was not defined', 1)
 	end
 
+	-- Note: with cyclic loops, first may be combined.
 	self.definition:aggregateFirst(visited, count)
 	self.first = self.definition.first
 	self.first[self] = true
-	self.isFirstFound = true
+	self.isFirstFound = self.definition.first
+	if not self.isFirstFound then
+		error("First could not be compiled due to loops, additional structures are needed.")
+	end
 end
 
 function Production:addFollow(follow)
@@ -87,9 +97,9 @@ end
 
 function Production:compileFollow()
 	if self.isTerminal then
-		local follow = {}
-		self.follow = follow
-		compileFollow({}, self.follow, follow)
+		local result = {}
+		compileFollow({}, self.follow, result)
+		self.follow = result
 	else
 		self.definition:compileFollow()
 		self.follow = self.definition.follow
@@ -111,33 +121,35 @@ function Production:expand(expansions)
 			end
 		end
 		return newExpansions
-	elseif not self.isExpanded then
-		self.isExpanded = true
-		expansions = {[{}] = true}
-		expansions = self.definition:expand(expansions)
-		local exps
-		if self.isRepeated then
-			exps = {}
-			for expansion in next, expansions do
-				exps[expansion] = true
-				exps[{
-					value = self;
-					next = expansion;
-				}] = true
-			end
-		else
-			exps = expansions
+	elseif self.isExpanded then
+		return
+	end
+	self.isExpanded = true
+	
+	expansions = {[{}] = true}
+	expansions = self.definition:expand(expansions)
+	local exps
+	if self.isRepeated then
+		exps = {}
+		for expansion in next, expansions do
+			exps[expansion] = true
+			exps[{
+				value = self;
+				next = expansion;
+			}] = true
 		end
-		local compiledExpansions = self.expansions
-		for expansion in next, exps do
-			local compiled = {}
-			while expansion do
-				compiled[#compiled + 1] = expansion.value
-				expansion = expansion.next
-			end
-			compiled = Expansion.new(compiled, self)
-			compiledExpansions[compiled] = true
+	else
+		exps = expansions
+	end
+	local compiledExpansions = self.expansions
+	for expansion in next, exps do
+		local compiled = {}
+		while expansion do
+			compiled[#compiled + 1] = expansion.value
+			expansion = expansion.next
 		end
+		compiled = Expansion.new(compiled, self)
+		compiledExpansions[compiled] = true
 	end
 end
 
@@ -150,8 +162,8 @@ function Production:__index(key)
 		end
 		return self.tokenType[key]
 	else
-		print(key, self)
-		error 'Attempt to index a nonterminal production'
+		error('Attempt to index a nonterminal production '
+			.. tostring(self) .. ' with "' .. key .. '"', 2)
 	end
 end
 
@@ -161,13 +173,27 @@ end
 function Production:__add(other)
 	return Assembly.new(self, other, Assembly.Or)
 end
+
+local function autoSemanticAction(f, o)
+	return f(o)
+end
 function Production:__call(op)
 	if op == '?' then
 		return Assembly.new(self)
 	elseif op == '*' then
-		self.isOptional = true
-		self.isRepeated = true
-		return self
+		local rep = self.rep or self.definition and self.definition.rep
+		if rep then
+			return rep
+		end
+		local env = getfenv(2)
+		local auto = '_OPT_REP_' .. tostring(self)
+		env[auto] = self
+		env[auto] = autoSemanticAction
+		local new = env[auto]
+		self.rep = new
+		new.isRepeated = true
+		new.isOptional = true
+		return self.rep
 	elseif op == '+' then
 		return self * self '*'
 	else
@@ -179,6 +205,8 @@ end
 function Production:__tostring()
 	if self.token == '' then
 		return self.typename
+	elseif self.isTerminal then
+		return "'" .. self.token .. "'"
 	else
 		return self.token
 	end

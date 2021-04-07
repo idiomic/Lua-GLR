@@ -1,6 +1,8 @@
 local Assembly = {}
 
 function Assembly.new(arg1, arg2, op)
+	-- If the second argument doesn't exist,
+	-- assume the first argument is optional
 	op = arg2 and op or Assembly.Opt
 
 	local value = setmetatable({
@@ -19,6 +21,7 @@ function Assembly.new(arg1, arg2, op)
 		right = arg2;
 	}, Assembly)
 
+	-- This allows cyclic first loops to be tracked
 	value.first[value] = true
 
 	arg1.references[value] = 'left'
@@ -30,20 +33,20 @@ function Assembly.new(arg1, arg2, op)
 end
 
 function Assembly:grabFirst(index)
-	if self[index].isTerminal then
-		self.first[self[index]] = true
-	else
-		for key, value in next, self[index].first do
-			-- don't grab connection data.
-			-- bad stuff ensues. Trust me.
-			if key.isTerminal then
-				self.first[key] = value
-			end
+	for key in next, self[index].first do
+		if key.isTerminal then
+			self.first[key] = true
 		end
 	end
 end
 
+-- Extend the first into assemblies which reference
+-- this one.
 function Assembly:extendFirst(index)
+	if self.isFirstFound then
+		return
+	end
+
 	self.required[index] = false
 
 	if self.op and not self.op.extendFirst(self, index) then
@@ -59,17 +62,21 @@ function Assembly:extendFirst(index)
 	end
 end
 
--- used when cyclic dependencies are found
--- makes changing one affect the other
-function Assembly:combineFirsts(others, index)
+function Assembly:combineFirsts(others)
+	local start = others[self]
 	for assembly, level in next, others do
-		if level >= index and assembly.first ~= self.first then
-			for key, value in next, assembly.first do
-				self.first[key] = value
-				if not key.isTerminal then
-					key.first = self.first
+		if level > start and assembly.first ~= self.first then
+			-- Assembly and Production firsts always contain themselves
+			-- So we can simply add all their firsts to ours
+			-- References (nonterminal productions) are resolved later
+			-- Additional cycles will rewrite the firsts of these references
+			for first in next, assembly.first do
+				self.first[first] = value
+				if not first.isTerminal then
+					first.first = self.first
 				end
 			end
+			assembly.first = self.first
 		end
 	end
 end
@@ -80,7 +87,7 @@ function Assembly:aggregateFirst(visited, count)
 	if self.isFirstFound then
 		return
 	elseif visited[self] then
-		return self:combineFirsts(visited, visited[self])
+		return self:combineFirsts(visited)
 	end
 
 	visited[self] = count
@@ -89,9 +96,8 @@ function Assembly:aggregateFirst(visited, count)
 		self:grabFirst 'left'
 	end
 
-	if self.op then
-		self.op.aggregateFirst(self, visited, count)
-	end
+	self.op.aggregateFirst(self, visited, count)
+
 	visited[self] = nil
 
 	self.isFirstFound = true
@@ -125,11 +131,7 @@ function compileFollow(visited, follow, result)
 			result[value] = true
 		elseif not visited[value] then
 			visited[value] = true
-			if type(value) == 'table' then
-				compileFollow(visited, value, result)
-			else
-				error(value, key)
-			end
+			compileFollow(visited, value, result)
 		end
 	end
 end
@@ -171,26 +173,22 @@ function Assembly:__call(op)
 	if op == '?' then
 		return Assembly.new(self)
 	elseif op == '*' then
-		-- We should be throwing an error here telling the user that this
-		-- operation can only be performed on a nonterminal, but since
-		-- usability and approachability is a higher priority right now,
-		-- this functionallity has been hacked in. Once a syntax for syntax
-		-- definition has been created along with a transpiler to Lua, this
-		-- ugly hack will become obsolete.
 		if self.rep then
 			return self.rep
 		end
 		local env = getfenv(2)
 		local auto = env._NUM_AUTOS + 1
 		env._NUM_AUTOS = auto
-		auto = '_AUTO_' .. auto
+		auto = '_ASSEMBLY_REP_AUTO_' .. auto
 		env[auto] = self
 		env[auto] = autoSemanticAction
-		self.rep = env[auto] '*'
+		self.rep = env[auto]
+		env[auto].isRepeated = true
+		env[auto].isOptional = true
 		return self.rep
 	elseif op == '+' then
 		-- Totally not a violation of the rule above
-		return self + self '*'
+		return self * self '*'
 	else
 		error 'Attempt to call an assembly of productions'
 	end

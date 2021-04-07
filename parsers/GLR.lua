@@ -5,9 +5,12 @@ local DFA
 local token
 local cache
 
-local print
+local dprint
+local dstart
+local dfinish
 
 local function shift(node, action)
+	dprint('shift', action)
 	local new = {
 		cur = action;
 		prev = node;
@@ -22,14 +25,20 @@ local function reduce(prev, reduction)
 		return
 	end
 
+	local names = {}
 	local popedNodes = {}
 	for i = 1, #reduction do
 		popedNodes[i] = prev
+		names[#reduction - i + 1] = tostring(prev.production)
 		prev = prev.prev
 	end
 
 	local prod = reduction.production
-	performAction {
+	dstart 'reduce = {'
+	dprint('expansion', tostring(reduction))
+	dprint('popped', table.concat(names, ' '))
+	dfinish '}'
+	return performAction {
 		cur = DFA[prev.cur][prod];
 		prev = prev;
 		production = prod;
@@ -65,6 +74,7 @@ local function _performAction(node, _action)
 		return shift(node, _action)
 	end
 
+	dstart 'split = {'
 	for altAction in next, _action do
 		if type(altAction) == 'number' then
 			shift(node, altAction)
@@ -72,6 +82,7 @@ local function _performAction(node, _action)
 			reduce(node, altAction)
 		end
 	end
+	dfinish '}'
 end
 
 function performAction(node)
@@ -126,9 +137,16 @@ local function parse(parseTable, syntax, tokens)
 		terminal = terminals[i]
 		token = tokens.literals[i]
 
+		print('\n')
+		print(tostring(terminal))
 		cache = {}
 		newNodes = {}
 		for node in next, nodes do
+			dstart 'CurNode = {'
+			for key, value in next, node do
+				dprint(key, value)
+			end
+			dfinish '}'
 			performAction(node)
 		end
 		nodes = newNodes
@@ -142,6 +160,8 @@ local function parse(parseTable, syntax, tokens)
 end
 
 return function(settings)
-	print = settings.debugPrint
+	dprint = settings.dprint
+	dstart = settings.dstart
+	dfinish = settings.dfinish
 	return parse
 end

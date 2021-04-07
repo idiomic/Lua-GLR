@@ -8,7 +8,7 @@ local settings
 
 local function isWhitespace(c)
 	-- Space or Tab
-	return c == b' ' or c == b'\t'
+	return c == b' ' or c == b'\t' or c == b'\n' or c == b'\r'
 end
 
 local function isDelimiter(c)

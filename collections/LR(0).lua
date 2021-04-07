@@ -26,6 +26,14 @@ local function create(syntax, startProd)
 	local stateToKernel = {}
 	local stateToStates = {}
 
+	local function kernelToString(kernel)
+		local exps = {}
+		for item in next, kernel do
+			exps[#exps + 1] = tostring(itemToExpansion[item])
+		end
+		return table.concat(exps, ' | ')
+	end
+
 	-- Create all the items
 	for expansionID, expansion in ipairs(syntax.expansions) do
 		for _, symbol in ipairs(expansion) do
@@ -37,6 +45,7 @@ local function create(syntax, startProd)
 
 		-- The final item of an expansion doesn't contain a symbol
 		local itemID = #itemToStates + 1
+		itemToSymbol[itemID] = false
 		itemToStates[itemID] = {}
 		itemToExpansion[itemID] = expansion
 		expansionToItem[expansionID] = itemID
@@ -121,6 +130,14 @@ local function create(syntax, startProd)
 		local item = expansionToItem[i]
 		local reduction = itemToExpansion[item]
 		reductionToStates[reduction] = itemToStates[item]
+	end
+
+	for i, states in next, stateToStates do
+		setmetatable(states, {
+			__tostring = function(self)
+				return kernelToString(stateToKernel[i])
+			end
+		})
 	end
 
 	-- Return the transitions

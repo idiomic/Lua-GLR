@@ -27,6 +27,7 @@ local function rename(rep, src)
 end
 
 function variable(t, o)
+	print(t)
 	o[#o + 1] = {
 		nodeType = NODE_TYPE.REF;
 		token = t;

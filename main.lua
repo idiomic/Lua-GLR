@@ -1,7 +1,10 @@
 local settings = {
-	DEBUG_syntax_expansions = false;
+	DEBUG_extendFirst = false;
+	DEBUG_aggregateFirst = false;
+	DEBUG_syntax_expansions = true;
 	DEBUG_syntax_terminals = false;
-	DEBUG_LR0 = true;
+	DEBUG_SLR1_goto = true;
+	DEBUG_SLR1_reductions = false;
 }
 
 function settings.require(src)
@@ -9,20 +12,20 @@ function settings.require(src)
 end
 
 do
-	local tab = '   |'
+	local tab = ' |'
 	local n_tabs = 0
 	function settings.dprint(str, ...)
 		return print(tab:rep(n_tabs) .. str, ...)
 	end
 
-	function settings.dstart(str)
-		settings.dprint('\n' .. str)
+	function settings.dstart(str, ...)
+		settings.dprint(str, ...)
 		n_tabs = n_tabs + 1
 	end
 
-	function settings.dfinish(str)
+	function settings.dfinish(str, ...)
 		n_tabs = n_tabs - 1
-		settings.dprint(str .. '\n')
+		settings.dprint(str, ...)
 	end
 
 	function settings.read(src)
