@@ -19,7 +19,8 @@ end
 local function create(syntax, startProd)
 	syntax:expand()
 
-	local expansionToItem = {[0] = 0}
+	local expansionToFinish = {[0] = 0}
+	local expansionToStart = {}
 	local itemToSymbol = {}
 	local itemToStates = {}
 	local itemToExpansion = {}
@@ -34,25 +35,49 @@ local function create(syntax, startProd)
 		return table.concat(exps, ' | ')
 	end
 
+	local function getKernel(items)
+		local matching = {}
+		for state in next, itemToStates[next(items)] do
+			matching[state] = true
+		end
+
+		for item in next, items do
+			local states = itemToStates[item]
+			for state in next, matching do
+				if not states[state] then
+					matching[state] = nil
+				end
+			end
+			if not next(matching) then
+				return
+			end
+		end
+
+		return next(matching)
+	end
+
 	-- Create all the items
 	for expansionID, expansion in ipairs(syntax.expansions) do
+		local itemID = #itemToStates + 1
+		expansionToStart[expansionID] = itemID
+
 		for _, symbol in ipairs(expansion) do
-			local itemID = #itemToStates + 1
 			itemToSymbol[itemID] = symbol
 			itemToStates[itemID] = {}
 			itemToExpansion[itemID] = expansion
+			itemID = itemID + 1
 		end
 
 		-- The final item of an expansion doesn't contain a symbol
-		local itemID = #itemToStates + 1
 		itemToSymbol[itemID] = false
 		itemToStates[itemID] = {}
 		itemToExpansion[itemID] = expansion
-		expansionToItem[expansionID] = itemID
+
+		expansionToFinish[expansionID] = itemID
 	end
 
 	-- Create the start state
-	local startItem = expansionToItem[next(startProd.expansions).id - 1] + 1
+	local startItem = expansionToStart[next(startProd.expansions).id]
 	stateToKernel[1] = {[startItem] = true}
 	stateToStates[1] = {}
 	itemToStates[startItem][1] = 1
@@ -62,53 +87,51 @@ local function create(syntax, startProd)
 		local states = stateToStates[state]
 
 		-- Collect all items transitioning on the same symbol
-		local explored = {}
+		local closed = {}
 		local fringe = {}
 
+		-- Start exploring our kernel items
 		for item in next, stateToKernel[state] do
-			fringe[item] = true
+			fringe[#fringe + 1] = item
+			closed[item] = true
 		end
 
-		local item = next(fringe)
-		repeat
-			fringe[item] = nil
-			explored[item] = true
+		while #fringe > 0 do
+			local item = fringe[#fringe]
+			fringe[#fringe] = nil
 
+			-- Find which symbol is next for this item
 			local symbol = itemToSymbol[item]
+
+			-- Final items have no symbol
 			if symbol then
+				-- Transition to the next item in the expansion on that symbol
 				if states[symbol] then
 					states[symbol][item + 1] = true
 				else
 					states[symbol] = {[item + 1] = true}
 				end
 
+				-- We must now include expansions to reduce that symbol
 				for expansion in next, symbol.expansions do
-					local nextID = expansionToItem[expansion.id - 1] + 1
-					if not explored[nextID] then
-						fringe[nextID] = true
+					local nextID = expansionToStart[expansion.id]
+					if not closed[nextID] then
+						closed[nextID] = true
+						fringe[#fringe + 1] = nextID
 					end
 				end
 			end
-
-			item = next(fringe)
-		until not item
+		end
 
 		-- Get or create the state these items go to
 		for symbol, items in next, states do
-			local toState
-
 			if symbol.isRepeated then
 				for expansion in next, symbol.expansions do
-					items[expansionToItem[expansion.id - 1] + 1] = true
+					items[expansionToFinish[expansion.id - 1] + 1] = true
 				end
 			end
 
-			for otherState in next, itemToStates[next(items)] do
-				if shallowEqual(items, stateToKernel[otherState]) then
-					toState = otherState
-					break
-				end
-			end
+			local toState = getKernel(items)
 
 			if not toState then
 				toState = #stateToStates + 1
@@ -126,8 +149,8 @@ local function create(syntax, startProd)
 	until state > #stateToStates
 
 	local reductionToStates = {}
-	for i = 1, #expansionToItem do
-		local item = expansionToItem[i]
+	for i = 1, #expansionToFinish do
+		local item = expansionToFinish[i]
 		local reduction = itemToExpansion[item]
 		reductionToStates[reduction] = itemToStates[item]
 	end
