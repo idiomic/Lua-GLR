@@ -31,24 +31,80 @@ local function isHex(c)
 end
 
 local function delimiter()
-	if byte == b'[' or byte == b']' then
-		local i = 1
-		while peek(i) == b'=' do
-			i = i + 1
-		end
-		if peek(i) == byte then
-			for j = 1, i do
+	if byte == b'[' then
+		if nextByte == byte then
+			skip()
+			skip(true)
+			while nextByte ~= b']' and peek(2) ~= nextByte do
 				skip()
 			end
+			add 'string'
+			skip()
+			skip()
+			return
+		elseif nextByte == b'=' then
+			skip()
+
+			local i = 0
+			while byte == b'=' do
+				i = i + 1
+				skip()
+			end
+
+			if byte ~= b'[' then
+				return add 'invalid'
+			end
+			skip(true)
+
+			while true do
+				while nextByte ~= b']' do
+					skip()
+				end
+				local j = 2
+				while peek(j) == b'=' do
+					j = j + 1
+				end
+				if j == i + 2 then
+					add 'String'
+					for k = 1, i do
+						skip()
+					end
+					skip(true)
+					break
+				else
+					skip()
+				end
+			end
+			return
 		end
+	elseif byte == b'"' or byte == b"'" then
+		local s = byte
+		skip(true)
+		if byte == s then
+			add('String', '')
+			return
+		end
+		while nextByte ~= s and byte ~= 0 do
+			skip()
+		end
+		add 'String'
+		skip(true)
+		return
 	elseif byte == b'.' and nextByte == b'.' then
 		-- .. and ...
 		skip()
 		if nextByte == b'.' then
 			skip()
 		end
-	elseif byte == b'-' and nextByte == b'-'
-		or nextByte == b'=' and (byte == b'<' or byte == b'=' or byte == b'>' or byte == b'~') then
+	elseif byte == b'-' and nextByte == b'-' then
+		while byte ~= b'\n' and byte ~= b'\r' and nextByte ~= 0 do
+			skip()
+		end
+		if byte == b'\r' and nextByte == b'\n' then
+			skip()
+		end
+		return
+	elseif nextByte == b'=' and (byte == b'<' or byte == b'=' or byte == b'>' or byte == b'~') then
 		-- operations with two symbols e.g. '<='
 		-- and comments like this
 		skip()
@@ -139,8 +195,8 @@ local function tokenize(source)
 		end
 	end
 
-	function add(tokenType)
-		local token = source:sub(tokenStart, tokenEnd)
+	function add(tokenType, token)
+		token = token or source:sub(tokenStart, tokenEnd)
 		if tokenType == 'variable' and keywords[token] then
 			tokenType = 'keyword'
 		elseif tokenType == 'whitespace' or tokenType == 'delimiter' and token == '\n' then
@@ -168,7 +224,7 @@ local function tokenize(source)
 		settings.dstart 'Tokens: ['
 		local fmt = '%s\t(%s)\t%d:%d-%d'
 		for i in ipairs(literals) do
-			settings.dprint(fmt:format(literal, types[i], lines[i], ranges[i][1], ranges[i][2]))
+			settings.dprint(fmt:format(literals[i], types[i], lines[i], ranges[i][1], ranges[i][2]))
 		end
 		settings.dfinish ']'
 	end

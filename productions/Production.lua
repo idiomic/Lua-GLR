@@ -2,6 +2,8 @@ local Assembly, Expansion
 
 local Production = {}
 
+local settings
+
 function Production.new(tokenType, token, typename)
 	local isTerminal = tokenType and true or false
 
@@ -9,19 +11,21 @@ function Production.new(tokenType, token, typename)
 		tokenType = tokenType;
 		token = token;
 		typename = typename;
+		isProduction = true;
+		isRef = false;
 		isDefined = false;
 		isExtended = false;
 		isExpanded = false;
 		isOptional = false;
-		isRepeated = false;
 		isTerminal = isTerminal;
 		isFirstFound = isTerminal;
 		addedFollow = false;
 		expansions = {};
+		multiplicity = {};
 		follow = {};
 		first = nil;
 		references = {};
-		rep = false;
+		refs = {};
 		definition = false;
 		semanticAction = false;
 	}, Production)
@@ -75,11 +79,32 @@ function Production:aggregateFirst(visited, count)
 	end
 end
 
+function Production:initAddFollow()
+	if self.refs.rep or self.refs.opt_rep then
+		local follow = {}
+		for first in next, self.first do
+			if first.isTerminal then
+				follow[first] = true
+			end
+		end
+		if settings.DEBUG_rep_follow then
+			settings.dstart(tostring(self) .. ' rep follow = {')
+			for k, v in next, follow do
+				settings.dprint(tostring(k))
+			end
+			settings.dfinish '}'
+		end
+		self:addFollow(follow)
+	else
+		self:addFollow{}
+	end
+end
+
 function Production:addFollow(follow)
 	if self.isTerminal then
 		self.follow[follow] = true
 	else
-		self.definition:addFollow(follow, self.isRepeated)
+		self.definition:addFollow(follow)
 	end
 end
 
@@ -106,8 +131,29 @@ function Production:compileFollow()
 	end
 end
 
+function Production:dprintExps(exps)
+	settings.dstart('Expanding ' .. tostring(self) .. ' = {')
+	settings.dstart 'Got = {'
+	for expansion in next, exps do
+		local c = {}
+		local cur = expansion
+		while cur do
+			c[#c + 1] = tostring(cur.value)
+			cur = cur.next
+		end
+		settings.dprint(table.concat(c, ' '))
+	end
+	settings.dfinish '}'
+	settings.dprint('Adding ' .. tostring(self))
+	settings.dfinish '}'
+end
+
 function Production:expand(expansions)
 	if expansions then
+		if settings.DEBUG_expansions then
+			self:dprintExps(expansions)
+		end
+
 		local newExpansions = {}
 		for expansion in next, expansions do
 			newExpansions[{
@@ -115,41 +161,55 @@ function Production:expand(expansions)
 				next = expansion;
 			}] = true
 		end
-		if self.isOptional then
-			for expansion in next, expansions do
-				newExpansions[expansion] = true
-			end
-		end
 		return newExpansions
 	elseif self.isExpanded then
 		return
 	end
 	self.isExpanded = true
 	
-	expansions = {[{}] = true}
+	local start = {}
+	expansions = {[start] = true}
 	expansions = self.definition:expand(expansions)
-	local exps
-	if self.isRepeated then
-		exps = {}
-		for expansion in next, expansions do
-			exps[expansion] = true
-			exps[{
-				value = self;
-				next = expansion;
-			}] = true
-		end
-	else
-		exps = expansions
+
+	if settings.DEBUG_expansions then
+		self:dprintExps(expansions)
 	end
+
 	local compiledExpansions = self.expansions
-	for expansion in next, exps do
-		local compiled = {}
-		while expansion do
-			compiled[#compiled + 1] = expansion.value
-			expansion = expansion.next
+	for expansion in next, expansions do
+		if expansion ~= start then
+			local compiled = {}
+			while expansion do
+				compiled[#compiled + 1] = expansion.value
+				expansion = expansion.next
+			end
+			compiled = Expansion.new(compiled, self)
+			compiledExpansions[compiled] = true
 		end
-		compiled = Expansion.new(compiled, self)
-		compiledExpansions[compiled] = true
+	end
+
+	for expansion in next, self.expansions do
+		local once = {}
+		local mult = {}
+		for i, sym in next, expansion do
+			if sym.isRef and sym.isRepeated then
+				mult[sym.production] = true
+			else
+				if sym.isRef then
+					sym = sym.production
+				end
+				if not mult[sym] then
+					if once[sym] then
+						mult[sym] = true
+					else
+						once[sym] = true
+					end
+				end
+			end
+		end
+		for sym in next, mult do
+			self.multiplicity[sym] = true
+		end
 	end
 end
 
@@ -174,30 +234,25 @@ function Production:__add(other)
 	return Assembly.new(self, other, Assembly.Or)
 end
 
-local function autoSemanticAction(f, o)
-	return f(o)
-end
 function Production:__call(op)
-	if op == '?' then
-		return Assembly.new(self)
-	elseif op == '*' then
-		local rep = self.rep or self.definition and self.definition.rep
-		if rep then
-			return rep
+	local refs = self.refs
+	if op == '+' then
+		if not refs.rep then
+			refs.rep = Ref(self, false, true)
 		end
-		local env = getfenv(2)
-		local auto = '_OPT_REP_' .. tostring(self)
-		env[auto] = self
-		env[auto] = autoSemanticAction
-		local new = env[auto]
-		self.rep = new
-		new.isRepeated = true
-		new.isOptional = true
-		return self.rep
-	elseif op == '+' then
-		return self * self '*'
+		return refs.rep
+	elseif op == '*' then
+		if not refs.opt_rep then
+			refs.opt_rep = Ref(self, true, true)
+		end
+		return refs.opt_rep
+	elseif op == '?' then
+		if not refs.opt then
+			refs.opt = Ref(self, true, false)
+		end
+		return refs.opt
 	else
-		error 'Attempt to call an assembly of productions'
+		error 'Attempt to call a production without ?, *, or +'
 	end
 	return self
 end
@@ -206,15 +261,17 @@ function Production:__tostring()
 	if self.token == '' then
 		return self.typename
 	elseif self.isTerminal then
-		return "'" .. self.token .. "'"
+		return self.token
 	else
 		return self.token
 	end
 end
 Production.class = 'Production'
 
-return function(settings)
-	Assembly = settings.require 'productions/Assembly'
-	Expansion = settings.require 'productions/Expansion'
+return function(_settings)
+	Assembly = _settings.require 'productions/Assembly'
+	Expansion = _settings.require 'productions/Expansion'
+	Ref = _settings.require 'productions/Ref'
+	settings = _settings
 	return Production
 end

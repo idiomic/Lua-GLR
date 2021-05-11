@@ -1,5 +1,5 @@
 local Collection
-local deepPrint
+local tostring, dstart, dfinish, dprint
 
 local settings
 
@@ -11,45 +11,43 @@ local function generate(syntax)
 
 	syntax:findFollow()
 
-	print("Found follow")
-
 	local DFA, reductionToStates = Collection(syntax, start)
 
 	if settings.DEBUG_SLR1_goto then
-		settings.dstart 'DFA / goto table = {'
+		dstart 'DFA / goto table = {'
 		for i, go in next, DFA do
-			settings.dstart('(' .. tostring(i) .. ') '
+			dstart('(' .. tostring(i) .. ') '
 				.. tostring(go) ..' = {')
 			for on, to in next, go do
-				settings.dprint(tostring(on), to)
+				dprint(tostring(on), to)
 			end
-			settings.dfinish '}'
+			dfinish '}'
 		end
-		settings.dfinish '}'
+		dfinish '}'
 	end
 
 	if settings.DEBUG_SLR1_reductions then
-		settings.dstart 'Reductions = {'
+		dstart 'Reductions = {'
 		for reduction, states in next, reductionToStates do
-			settings.dstart 'reduction = {'
+			dstart 'reduction = {'
 
-			settings.dprint('symbol ' .. tostring(reduction.production))
+			dprint('symbol ' .. tostring(reduction.production))
 
-			settings.dstart 'at = {'
+			dstart 'at = {'
 			for i in next, states do
-				settings.dprint(tostring(DFA[i]))
+				dprint('(' .. tostring(i) .. ') ' .. tostring(DFA[i]))
 			end
-			settings.dfinish '}'
+			dfinish '}'
 
 			local on = {}
 			for sym in next, reduction.production.follow do
 				on[#on + 1] = tostring(sym)
 			end
-			settings.dprint('on ' .. table.concat(on, ', '))
+			dprint('on ' .. table.concat(on, ', '))
 
-			settings.dfinish '}'
+			dfinish '}'
 		end
-		settings.dfinish '}'
+		dfinish '}'
 	end
 
 	for reduction, states in next, reductionToStates do
@@ -59,7 +57,7 @@ local function generate(syntax)
 				local trans = state[nextSymbol]
 				if not trans then
 					state[nextSymbol] = reduction
-				elseif type(trans) == 'table' then
+				elseif type(trans) == 'table' and not trans[1] then
 					trans[reduction] = true
 				else
 					state[nextSymbol] = {
@@ -76,7 +74,10 @@ end
 
 return function(_settings)
 	settings = _settings
-	deepPrint = settings.require 'util/deepPrint'
+	tostring = settings.require 'util/tostring'
+	dprint = settings.dprint
+	dstart = settings.dstart
+	dfinish = settings.dfinish
 	Collection = settings.require 'collections/LR(0)'
 	return generate
 end

@@ -107,7 +107,7 @@ function Syntax:findFollow()
 	-- First for each production, we send our firsts to
 	-- the previous productions
 	for _, production in next, self.productions do
-		production:addFollow{}
+		production:initAddFollow()
 	end
 
 	-- Then we compile these sets into a single set of
@@ -116,7 +116,7 @@ function Syntax:findFollow()
 		production:compileFollow{}
 	end
 
-	if settings.DEBUG_first then
+	if settings.DEBUG_follow then
 		settings.dstart 'DEBUG follow = {'
 
 		for _, terminalType in next, self.terminals do
@@ -267,7 +267,7 @@ function Syntax:set(key, value)
 	local nonterminal = self:get(key)
 
 	if value.class == 'Production' then
-		value = Assembly.new(value, value, Assembly.Or)
+		value = Assembly.new(value, nil, Assembly.Identity)
 	end
 
 	if nonterminal.isDefined then

@@ -1,52 +1,49 @@
-local settings = {
-	DEBUG_extendFirst = false;
-	DEBUG_aggregateFirst = false;
-	DEBUG_first = true;
-	DEBUG_syntax_expansions = true;
-	DEBUG_syntax_terminals = false;
-	DEBUG_SLR1_goto = true;
-	DEBUG_SLR1_reductions = false;
-}
+-- Using a wrapper around require allows quick integration
+-- into envirionments in which require works differently.
+local settings = require 'settings'
+local require = settings.require
+local tostring = settings.tostring
 
-function settings.require(src)
-	return require(src)(settings)
+-- Language CFG augmented with semantic actions to produce an AST
+local syntax = require 'grammars/lua/AbstractSyntaxTree'
+
+-- Language tokenizer
+local tokenize = require 'grammars/lua/tokens'
+
+-- Parser generator
+local SLR = require 'generators/SLR(1)'
+
+-- GLR parser to handle even ambiguous grammars
+local GLR = require 'parser/GLR'
+
+-- Intepreter of parse trees to run semantic actions
+local fireActions = require 'parser/actions'
+
+-- If input source files are not given, read './input.txt'
+local sources = arg
+if #sources == 0 then
+	sources[1] = 'input.txt'
 end
 
-do
-	local tab = ' |'
-	local n_tabs = 0
-	function settings.dprint(str, ...)
-		return print(tab:rep(n_tabs) .. str, ...)
-	end
+-- Read in each input
+local parser = SLR(syntax)
+for i, source in ipairs(sources) do
+	print(source)
+	-- Tokenize the source
+	local tokens = tokenize(settings.read(source))
 
-	function settings.dstart(str, ...)
-		settings.dprint(str, ...)
-		n_tabs = n_tabs + 1
-	end
+	-- Interpret the tokens
+	local trees = GLR(parser, syntax, tokens)
 
-	function settings.dfinish(str, ...)
-		n_tabs = n_tabs - 1
-		settings.dprint(str, ...)
-	end
+	-- For unambiguous grammars, there will always be
+	-- a single parse tree
+	for tree in next, trees do
+		-- These semantic actions expect an AST to output
+		-- and a starting context
+		local ctx, ast = {}, {}
+		fireActions(tree, ctx, ast)
 
-	function settings.read(src)
-		local input = io.open('input', 'r')
-		io.input(input)
-		local source = io.read '*all'
-		io.close(input)
-		return source
+		-- Show the resulting AST
+		print(tostring(ast))
 	end
 end
-
--- utils
-local deepPrint = settings.require 'util/deepPrint'
-local deepCopy = settings.require 'util/deepCopy'
-settings.deepPrint = deepPrint
-settings.deepCopy = deepCopy
-
-local syntax = settings.require 'grammars/lua/semantics'
-local tokenize = settings.require 'grammars/lua/tokens'
-local SLR = settings.require 'generators/SLR(1)'
-local parse = settings.require 'parsers/GLR'
-
-print(deepPrint(parse(SLR(syntax), syntax, tokenize(settings.read 'input'))))

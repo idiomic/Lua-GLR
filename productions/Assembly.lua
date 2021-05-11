@@ -1,10 +1,9 @@
 local Assembly = {}
 
 function Assembly.new(arg1, arg2, op)
-	-- If the second argument doesn't exist,
-	-- assume the first argument is optional
-	op = arg2 and op or Assembly.Opt
-
+	if op == nil then
+		error('nil op')
+	end
 	local value = setmetatable({
 		op = op;
 		isOptional = false;
@@ -103,19 +102,11 @@ function Assembly:aggregateFirst(visited, count)
 	self.isFirstFound = true
 end
 
-function Assembly:addFollow(follow, isRepeated)
+function Assembly:addFollow(follow)
 	if self.follow then
 		self.follow[follow] = true
 	else
 		self.follow = {[follow] = true}
-	end
-
-	if isRepeated or self.isRepeated then
-		for key, value in next, self.first do
-			if key.isTerminal then
-				self.follow[key] = value
-			end
-		end
 	end
 
 	if not self.addedFollow then
@@ -129,6 +120,8 @@ function compileFollow(visited, follow, result)
 	for value, key in next, follow do
 		if value == 'FINISH' or value.isTerminal then
 			result[value] = true
+		elseif type(value) == 'string' then
+			print(value)
 		elseif not visited[value] then
 			visited[value] = true
 			compileFollow(visited, value, result)
@@ -153,61 +146,22 @@ function Assembly:compileFollow()
 end
 
 function Assembly:expand(expansions)
-	local new = self.op.expand(self, expansions)
-	if self.isOptional then
-		for expansion in next, expansions do
-			new[expansion] = true
-		end
-	end
-	return new
+	return self.op.expand(self, expansions)
 end
 
 function Assembly:__mul(other) return self:new(other, Assembly.And) end
 function Assembly:__add(other) return self:new(other, Assembly.Or) end
-
-local function autoSemanticAction(f, o)
-	return f(o)
-end
-
 function Assembly:__call(op)
-	if op == '?' then
-		return Assembly.new(self)
-	elseif op == '*' then
-		if self.rep then
-			return self.rep
-		end
-		local env = getfenv(2)
-		local auto = env._NUM_AUTOS + 1
-		env._NUM_AUTOS = auto
-		auto = '_ASSEMBLY_REP_AUTO_' .. auto
-		env[auto] = self
-		env[auto] = autoSemanticAction
-		self.rep = env[auto]
-		env[auto].isRepeated = true
-		env[auto].isOptional = true
-		return self.rep
-	elseif op == '+' then
-		-- Totally not a violation of the rule above
-		return self * self '*'
-	else
-		error 'Attempt to call an assembly of productions'
-	end
-	return self
+	error('Attempt to call an assembly of productions', 2)
 end
-
 function Assembly:__tostring()
-	if self.op then
-		return self.op.name:format(tostring(self.left), tostring(self.right))
-	else
-		return tostring(self.left)
-	end
+	return self.op.name:format(tostring(self.left), tostring(self.right))
 end
-Assembly.class = 'Assembly'
 Assembly.__index = Assembly
 
 return function(settings)
 	Assembly.Or = settings.require 'productions/Or'
 	Assembly.And = settings.require 'productions/And'
-	Assembly.Opt = settings.require 'productions/Opt'
+	Assembly.Identity = settings.require 'productions/Identity'
 	return Assembly
 end
