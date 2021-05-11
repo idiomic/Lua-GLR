@@ -64,7 +64,7 @@ end
 
 local function firstCall(data)
 	lines, cache, count, line = {}, {}, 0, ''
-	deepPrint(data, '')
+	pushVal(data, '')
 	flush ''
 	local str = table.concat(lines, '\n')
 	lines, cache, count = nil, nil, nil
