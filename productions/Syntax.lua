@@ -40,7 +40,6 @@ function Syntax.define()
 	local new = setmetatable({
 		terminals = {};
 		productions = {};
-		terminal_types = {};
 	}, Syntax)
 	envToSyntax[env] = new
 
